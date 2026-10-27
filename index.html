@@ -12,8 +12,10 @@
     .inp { @apply border border-gray-300 p-2 rounded w-full outline-none focus:ring-2 focus:ring-blue-500 bg-white; }
     .lbl { @apply block text-sm font-bold text-gray-700 mb-1; }
     .card { @apply bg-white p-4 rounded-lg shadow mb-6; }
-    .pb { @apply flex-1 py-2 px-1 mx-0.5 rounded text-sm md:text-base border border-gray-200 bg-gray-100 text-gray-700; }
-    .mb2 { @apply px-2 py-1.5 rounded text-xs md:text-sm flex-1 border border-gray-300 bg-white text-gray-600; }
+    .pb { @apply flex-1 py-3 px-1 mx-0.5 rounded text-base border border-gray-200 bg-gray-100 text-gray-700 min-h-[48px]; }
+    .mb2 { @apply px-2 py-2.5 rounded text-sm flex-1 border border-gray-300 bg-white text-gray-600 min-h-[44px]; }
+    button, select, input, summary { touch-action: manipulation; }
+    body { -webkit-tap-highlight-color: transparent; }
   }
   .loader { border-top-color:#3498db; animation: sp 1.2s linear infinite; }
   @keyframes sp { to { transform: rotate(360deg); } }
@@ -38,11 +40,11 @@
   <nav class="bg-blue-800 text-white p-3 shadow-md flex flex-wrap justify-between items-center gap-2">
     <div class="font-bold text-xl">FRCSS PE <span id="who" class="text-xs font-normal opacity-80"></span></div>
     <div class="flex gap-2 text-sm md:text-base">
-      <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
-      <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
-      <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
-      <button id="nav-students" class="px-3 py-1 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
-      <button class="px-3 py-1 rounded bg-red-700" onclick="app.logout()">登出</button>
+      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
+      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
+      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
+      <button id="nav-students" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
+      <button class="px-3 py-2 rounded bg-red-700" onclick="app.logout()">登出</button>
     </div>
   </nav>
 
@@ -231,7 +233,7 @@ const app = {
     } catch (e) { this.clear(); alert('錯誤：' + e.message); }
   },
   render() {
-    const g = $('att-gender').value;
+    const y = window.scrollY, g = $('att-gender').value;
     const list = this.s.students.map((s, i) => [s, i]).filter(([s]) => g === 'all' || this.gOf(s) === g);
     if (!list.length) { $('att-list').innerHTML = '<div class="card text-center text-gray-500">沒有符合的學生</div>'; this.stats([]); return; }
     const rows = list.map(([s, i]) => {
@@ -242,19 +244,20 @@ const app = {
         return `<button class="${c}" onclick="app.setP(${i},'${p}')">${p}</button>`;
       }).join('');
       const mods = a.p !== '出席' ? '' : `<div class="mt-2 bg-yellow-50 p-2 rounded border border-yellow-200"><div class="text-xs font-bold text-yellow-800 mb-1">⚠️ 特殊狀況（仍可上堂）</div><div class="flex gap-2">${MODS.map(m => `<button class="mb2 ${a.mods.includes(m) ? '!bg-yellow-500 !text-white font-bold' : ''}" onclick="app.togMod(${i},'${m}')">${m}</button>`).join('')}</div></div>`;
-      const other = a.p !== '其他' ? '' : `<input class="inp mt-2 text-sm" placeholder="請填寫原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" onchange="app.setOther(${i},this.value)">`;
+      const other = a.p !== '其他' ? '' : `<input class="inp mt-2 text-sm" placeholder="請填寫原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" oninput="app.setOther(${i},this.value)">`;
       const cant = s.PEAbility === 'cannot_play';
       return `<div class="bg-white rounded-lg shadow-sm border p-3 mb-3 md:flex md:items-start md:gap-4">
         <div class="md:w-56 flex md:block items-center justify-between mb-2 md:mb-0">
           <div><span class="text-gray-500 mr-2">${esc(s.StudentNo)}</span><span class="font-bold text-lg text-blue-800">${esc(s.ChiName)}</span>${s.House ? ` <span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : ''}</div>
           <div class="text-xs text-gray-600 md:mt-1">${esc(s.PERemarks) || '-'}</div></div>
         <div class="md:w-40 flex md:flex-col gap-1 items-start mb-2 md:mb-0">
-          <button class="px-2 py-1 rounded text-xs font-bold text-white ${cant ? 'bg-red-500' : 'bg-yellow-500'}" onclick="app.togAbility(${i})">${cant ? '🔴 免上堂' : '🟡 可上堂'}</button>
-          <div class="text-xs">${s.absCount ? `<button class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold" onclick="app.dates(${i},'abs')">缺席 ${s.absCount} 次</button>` : ''} ${s.noUniformCount ? `<button class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-bold" onclick="app.dates(${i},'uni')">冇帶衫 ${s.noUniformCount} 次</button>` : ''}</div></div>
+          <button class="px-3 py-2 rounded text-sm font-bold text-white min-h-[40px] ${cant ? 'bg-red-500' : 'bg-yellow-500'}" onclick="app.togAbility(${i})">${cant ? '🔴 免上堂' : '🟡 可上堂'}</button>
+          <div class="text-sm flex gap-2 flex-wrap">${s.absCount ? `<button class="bg-red-100 text-red-700 px-3 py-2 rounded font-bold min-h-[40px]" onclick="app.dates(${i},'abs')">缺席 ${s.absCount} 次</button>` : ''} ${s.noUniformCount ? `<button class="bg-yellow-100 text-yellow-700 px-3 py-2 rounded font-bold min-h-[40px]" onclick="app.dates(${i},'uni')">冇帶衫 ${s.noUniformCount} 次</button>` : ''}</div></div>
         <div class="flex-1"><div class="flex">${pb}</div>${mods}${other}</div></div>`;
     }).join('');
     $('att-list').innerHTML = `<div class="font-bold text-lg mb-2">${g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學'}（${list.length} 人）</div>` + rows; this.stats(list.map(x => x[0]));
     $('submit-btn').textContent = '✅ 提交點名紀錄（' + (g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學') + ' ' + list.length + ' 人）';
+    window.scrollTo(0, y);
   },
   setP(i, p) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID]; a.p = p; if (p !== '出席') a.mods = []; if (p !== '其他') a.other = ''; this.render(); },
   togMod(i, m) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID], k = a.mods.indexOf(m); k > -1 ? a.mods.splice(k, 1) : a.mods.push(m); this.render(); },
@@ -364,7 +367,7 @@ const app = {
       return c ? c * dir : (b.abs - a.abs) || (b.uni - a.uni) || String(a.Class).localeCompare(String(b.Class)) || parseInt(a.StudentNo) - parseInt(b.StudentNo);
     });
     this.s.sumView = v;
-    $('s-head').innerHTML = '<tr>' + COLS.map(([key, label]) => `<th class="p-2 cursor-pointer whitespace-nowrap" onclick="app.sortSum('${key}')">${label}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('') + '</tr>';
+    $('s-head').innerHTML = '<tr>' + COLS.map(([key, label]) => `<th class="p-3 cursor-pointer whitespace-nowrap select-none" onclick="app.sortSum('${key}')">${label}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('') + '</tr>';
     $('s-info').textContent = `共 ${v.length} 人（紅色＝缺席 ≥ ${ta}；黃色＝冇帶衫 ≥ ${tu}）`;
     const dl = (t, a) => a.length ? `<div><b>${t}：</b>${esc(a.join('、'))}</div>` : '';
     $('s-body').innerHTML = v.length ? v.map((r, i) => {
