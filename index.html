@@ -40,6 +40,7 @@
     <div class="flex gap-2 text-sm md:text-base">
       <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
       <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
+      <button class="px-3 py-1 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
       <button id="nav-students" class="px-3 py-1 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
       <button class="px-3 py-1 rounded bg-red-700" onclick="app.logout()">登出</button>
     </div>
@@ -124,6 +125,27 @@
         <thead class="bg-gray-100"><tr><th class="p-3">日期</th><th class="p-3">班別</th><th class="p-3">學號</th><th class="p-3">姓名</th><th class="p-3">社</th><th class="p-3">狀態</th></tr></thead>
         <tbody id="h-body"></tbody></table></div>
     </section>
+    <!-- 學生統計 -->
+    <section id="sec-summary" class="hidden">
+      <h2 class="text-xl font-bold mb-4 border-b pb-2">學生統計（缺席／冇帶衫等）</h2>
+      <div class="card grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+        <div><label class="lbl">由</label><input type="date" id="s-from" class="inp"></div>
+        <div><label class="lbl">至</label><input type="date" id="s-to" class="inp"></div>
+        <div><label class="lbl">班別</label><select id="s-class" class="inp"></select></div>
+        <div><label class="lbl">缺席警示線 ≥</label><input type="number" id="s-tabs" class="inp" value="3" min="1" onchange="app.renderSum()"></div>
+        <div><label class="lbl">冇帶衫警示線 ≥</label><input type="number" id="s-tuni" class="inp" value="3" min="1" onchange="app.renderSum()"></div>
+        <button class="btn bg-blue-600" onclick="app.loadSum()">統計</button>
+      </div>
+      <div class="flex flex-wrap gap-3 mb-3 items-center">
+        <label class="text-sm"><input type="checkbox" id="s-flag" onchange="app.renderSum()"> 只顯示達警示線的學生</label>
+        <button class="btn bg-green-600" onclick="app.exportSum()">匯出 CSV</button>
+        <span id="s-info" class="text-sm text-gray-600"></span>
+      </div>
+      <div class="bg-white rounded shadow overflow-x-auto"><table class="w-full text-left text-sm">
+        <thead class="bg-gray-100" id="s-head"></thead>
+        <tbody id="s-body"><tr><td colspan="13" class="p-4 text-center text-gray-500">請按「統計」</td></tr></tbody></table></div>
+      <p class="text-xs text-gray-500 mt-2">點擊表頭可排序；點擊學生可展開日期。冇帶衫、受傷、見社工已包含在「出席」內；缺席率 = 缺席 ÷（總節數 − 比賽）；「其他」（例如病假）不計入缺席，請自行判斷。</p>
+    </section>
   </main>
 </div>
 
@@ -147,6 +169,8 @@ const app = {
     $('att-class').innerHTML = opts('選擇班別'); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts('');
     $('att-date').value = this.today(); $('h-to').value = this.today();
     const d0 = new Date(Date.now() - 30 * 864e5); $('h-from').value = new Date(d0 - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const t0 = new Date(), y0 = t0.getMonth() >= 8 ? t0.getFullYear() : t0.getFullYear() - 1;
+    $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部');
   },
   today() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); },
 
@@ -166,7 +190,7 @@ const app = {
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden'));
   },
-  nav(n) { ['attendance', 'students', 'history'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n)); },
+  nav(n) { ['attendance', 'students', 'history', 'summary'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n)); },
 
   async api(action, payload) {
     $('busy').classList.remove('hidden');
@@ -314,6 +338,46 @@ const app = {
     if (!this.s.hist.length) return alert('請先搜尋出資料後再匯出！');
     const rows = this.s.hist.map(r => [r.Date, r.Class, r.StudentNo, r.ChiNameSnap, this.houseLbl(r.House), r.AttendanceStatus].map(v => this.csvCell(v)).join(','));
     this.download('FRCSS_Attendance_' + this.today() + '.csv', '日期,班別,學號,姓名,社,狀態\n' + rows.join('\n'));
+  },
+
+  // ----- 學生統計 -----
+  async loadSum() {
+    try { this.s.sum = await this.api('getStudentSummary', { from: $('s-from').value, to: $('s-to').value, classCode: $('s-class').value }); this.renderSum(); }
+    catch (e) { alert('錯誤：' + e.message); }
+  },
+  sortSum(k) {
+    if ((this.s.sortK || 'abs') === k) this.s.sortD = -(this.s.sortD || -1);
+    else { this.s.sortK = k; this.s.sortD = ['Class', 'StudentNo', 'ChiName', 'House'].includes(k) ? 1 : -1; }
+    this.renderSum();
+  },
+  togDetail(i) { $('sd-' + i).classList.toggle('hidden'); },
+  renderSum() {
+    const COLS = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率']];
+    const NUM = ['total', 'present', 'abs', 'uni', 'inj', 'sw', 'comp', 'oth', 'rate'];
+    const ta = Number($('s-tabs').value) || 3, tu = Number($('s-tuni').value) || 3, k = this.s.sortK || 'abs', dir = this.s.sortD || -1;
+    let v = (this.s.sum || []).map(r => Object.assign({}, r, { rate: (r.total - r.comp) > 0 ? r.abs / (r.total - r.comp) : 0 }));
+    if ($('s-flag').checked) v = v.filter(r => r.abs >= ta || r.uni >= tu);
+    v.sort((a, b) => {
+      let x = a[k], y = b[k];
+      if (k === 'StudentNo') { x = parseInt(x) || 0; y = parseInt(y) || 0; }
+      const c = (NUM.includes(k) || k === 'StudentNo') ? x - y : String(x).localeCompare(String(y), 'zh-HK');
+      return c ? c * dir : (b.abs - a.abs) || (b.uni - a.uni) || String(a.Class).localeCompare(String(b.Class)) || parseInt(a.StudentNo) - parseInt(b.StudentNo);
+    });
+    this.s.sumView = v;
+    $('s-head').innerHTML = '<tr>' + COLS.map(([key, label]) => `<th class="p-2 cursor-pointer whitespace-nowrap" onclick="app.sortSum('${key}')">${label}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('') + '</tr>';
+    $('s-info').textContent = `共 ${v.length} 人（紅色＝缺席 ≥ ${ta}；黃色＝冇帶衫 ≥ ${tu}）`;
+    const dl = (t, a) => a.length ? `<div><b>${t}：</b>${esc(a.join('、'))}</div>` : '';
+    $('s-body').innerHTML = v.length ? v.map((r, i) => {
+      const ca = r.abs >= ta ? 'bg-red-100 text-red-700 font-bold' : '', cu = r.uni >= tu ? 'bg-yellow-100 text-yellow-700 font-bold' : '';
+      return `<tr class="border-b cursor-pointer hover:bg-gray-50" onclick="app.togDetail(${i})"><td class="p-2">${esc(r.Class)}</td><td class="p-2">${esc(r.StudentNo)}</td><td class="p-2 font-bold">${esc(r.ChiName)}</td><td class="p-2">${esc(this.houseLbl(r.House))}</td><td class="p-2">${r.total}</td><td class="p-2">${r.present}</td><td class="p-2 ${ca}">${r.abs}</td><td class="p-2 ${cu}">${r.uni}</td><td class="p-2">${r.inj}</td><td class="p-2">${r.sw}</td><td class="p-2">${r.comp}</td><td class="p-2">${r.oth}</td><td class="p-2">${(r.rate * 100).toFixed(0)}%</td></tr>` +
+        `<tr id="sd-${i}" class="hidden bg-gray-50"><td colspan="13" class="p-3 text-xs leading-6">${(dl('缺席', r.d.abs) + dl('冇帶衫', r.d.uni) + dl('受傷', r.d.inj) + dl('見社工', r.d.sw) + dl('其他', r.d.oth)) || '沒有紀錄'}</td></tr>`;
+    }).join('') : '<tr><td colspan="13" class="p-4 text-center text-gray-500">沒有資料</td></tr>';
+  },
+  exportSum() {
+    const v = this.s.sumView || [];
+    if (!v.length) return alert('請先按「統計」後再匯出！');
+    const rows = v.map(r => [r.Class, r.StudentNo, r.ChiName, this.houseLbl(r.House), r.total, r.present, r.abs, r.uni, r.inj, r.sw, r.comp, r.oth, (r.rate * 100).toFixed(0) + '%', r.d.abs.join(' '), r.d.uni.join(' '), r.d.oth.join(' ')].map(x => this.csvCell(x)).join(','));
+    this.download('FRCSS_Student_Summary_' + this.today() + '.csv', '班別,學號,姓名,社,總節數,出席,缺席,冇帶衫,受傷,見社工,比賽,其他,缺席率,缺席日期,冇帶衫日期,其他日期\n' + rows.join('\n'));
   },
 
   // ----- 學生管理 -----
