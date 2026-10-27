@@ -87,7 +87,8 @@
       <div class="card">
         <h3 class="font-bold mb-2">PE 備註／可否上堂（另一個 CSV）</h3>
         <ul class="text-sm text-gray-600 list-disc list-inside mb-3">
-          <li>欄位：班別、學號、可否上堂（can_play 或 cannot_play，亦可填 可上堂／免上堂）、PE 備註（選填）</li>
+          <li>欄位：班別、學號、可否上堂、PE 備註。可否上堂填 can_play 或 cannot_play（亦可填 可上堂／免上堂），<b>留空＝可上堂</b></li>
+          <li>點名頁顏色：🟢 沒有備註＋可上堂＝正常　🟡 有備註＋可上堂　🔴 免上堂（不論有否備註）</li>
           <li>只更新名單內的學生，其他學生不變；名單內學生的 PE 備註以 CSV 為準</li>
         </ul>
         <button class="text-blue-600 font-bold underline mb-3" onclick="app.abilityTemplate()">下載範本</button>
@@ -248,11 +249,12 @@ const app = {
       const mods = a.p !== '出席' ? '' : `<div class="mt-1 flex gap-1 items-center bg-yellow-50 rounded p-1 border border-yellow-200"><span class="text-xs text-yellow-800 whitespace-nowrap px-1">仍可上堂</span>${MODS.map(m => `<button class="mb2 ${a.mods.includes(m) ? '!bg-yellow-500 !text-white font-bold' : ''}" onclick="app.togMod(${i},'${m}')">${m}</button>`).join('')}</div>`;
       const other = a.p !== '其他' ? '' : `<input class="inp mt-1 text-sm" placeholder="原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" oninput="app.setOther(${i},this.value)">`;
       const cant = s.PEAbility === 'cannot_play', chip = 'px-2 rounded text-xs font-bold min-h-[32px] ';
+      const ab = cant ? ['bg-red-500', '🔴免上堂'] : String(s.PERemarks || '').trim() ? ['bg-yellow-500', '🟡可上堂'] : ['bg-green-500', '🟢正常'];
       const house = s.House ? `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : '';
       return `<div class="bg-white rounded border px-2 py-1.5 mb-1.5 md:flex md:items-center md:gap-3">
         <div class="md:w-80 flex items-center gap-1.5 flex-wrap mb-1 md:mb-0">
           <span class="text-gray-400 text-sm w-6">${esc(s.StudentNo)}</span><span class="font-bold text-blue-800">${esc(s.ChiName)}</span>${house}
-          <button class="${chip}text-white ${cant ? 'bg-red-500' : 'bg-yellow-500'}" onclick="app.togAbility(${i})">${cant ? '🔴免上堂' : '🟡可上堂'}</button>${s.absCount ? `<button class="${chip}bg-red-100 text-red-700" onclick="app.dates(${i},'abs')">缺席${s.absCount}</button>` : ''}${s.noUniformCount ? `<button class="${chip}bg-yellow-100 text-yellow-700" onclick="app.dates(${i},'uni')">冇帶衫${s.noUniformCount}</button>` : ''}${s.PERemarks ? `<span class="text-xs text-gray-500">${esc(s.PERemarks)}</span>` : ''}</div>
+          <button class="${chip}text-white ${ab[0]}" onclick="app.togAbility(${i})">${ab[1]}</button>${s.absCount ? `<button class="${chip}bg-red-100 text-red-700" onclick="app.dates(${i},'abs')">缺席${s.absCount}</button>` : ''}${s.noUniformCount ? `<button class="${chip}bg-yellow-100 text-yellow-700" onclick="app.dates(${i},'uni')">冇帶衫${s.noUniformCount}</button>` : ''}${s.PERemarks ? `<span class="text-xs text-gray-500">${esc(s.PERemarks)}</span>` : ''}</div>
         <div class="flex-1"><div class="flex">${pb}</div>${mods}${other}</div></div>`;
     }).join('');
     $('att-list').innerHTML = `<div class="font-bold mb-1">${g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學'}（${list.length} 人）</div>` + rows; this.stats(list.map(x => x[0]));
@@ -443,7 +445,7 @@ const app = {
       } catch (e) { alert('❌ 匯入失敗，名單沒有被修改：\n' + e.message); }
     }, error: e => alert('CSV 讀取失敗：' + e.message) });
   },
-  abilityTemplate() { this.download('FRCSS_PE_Ability_Template.csv', '班別,學號,可否上堂,PE備註\n1A,02,cannot_play,哮喘\n1A,05,can_play,'); },
+  abilityTemplate() { this.download('FRCSS_PE_Ability_Template.csv', '班別,學號,可否上堂,PE備註\n1A,02,can_play,哮喘（有備註但可上堂＝黃色）\n1A,05,cannot_play,腳傷（免上堂＝紅色）\n1A,08,,'); },
   importAbility() {
     const f = $('ab-file').files[0];
     if (!f) return alert('請先選擇 CSV 檔案！');
@@ -453,10 +455,10 @@ const app = {
         if (i === 0 && /班/.test(r[0] || '')) return;
         const t = k => String(r[k] == null ? '' : r[k]).trim();
         if (!t(0) && !t(1)) return;
-        if (!t(0) || !t(1) || !t(2)) { bad.push(i + 1); return; }
+        if (!t(0) || !t(1)) { bad.push(i + 1); return; }
         rows.push({ Class: t(0).toUpperCase(), StudentNo: t(1).length < 2 ? t(1).padStart(2, '0') : t(1), Ability: t(2), Remarks: t(3) });
       });
-      if (bad.length) return alert('以下行缺少班別、學號或可否上堂，請修正後再上傳：\n第 ' + bad.slice(0, 20).join('、') + ' 行');
+      if (bad.length) return alert('以下行缺少班別或學號，請修正後再上傳：\n第 ' + bad.slice(0, 20).join('、') + ' 行');
       if (!rows.length) return alert('找不到有效資料，欄位順序應為：班別、學號、可否上堂、PE備註');
       try {
         const p = await this.api('previewAbility', { rows });
