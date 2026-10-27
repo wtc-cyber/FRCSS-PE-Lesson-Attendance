@@ -15,6 +15,7 @@
     .pb { @apply flex-1 py-2 px-1 mx-0.5 rounded text-base border border-gray-200 bg-gray-100 text-gray-700 min-h-[44px]; }
     .mb2 { @apply px-2 py-2.5 rounded text-sm flex-1 border border-gray-300 bg-white text-gray-600 min-h-[44px]; }
     button, select, input, summary { touch-action: manipulation; }
+    .gb { @apply px-3 py-2 rounded border border-gray-300 bg-white text-sm min-h-[40px]; }
     body { -webkit-tap-highlight-color: transparent; }
   }
   .loader { border-top-color:#3498db; animation: sp 1.2s linear infinite; }
@@ -48,11 +49,12 @@
     </div>
   </nav>
 
+  <div id="ver-warn" class="hidden bg-red-600 text-white text-center p-2 text-sm"></div>
   <main class="flex-grow p-3 md:p-8 w-full max-w-6xl mx-auto">
     <!-- 點名 -->
     <section id="sec-attendance">
       <h2 class="text-xl font-bold mb-4 border-b pb-2">課堂點名</h2>
-      <div class="card grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+      <div id="att-filter" class="card grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
         <div><label class="lbl">日期</label><input type="date" id="att-date" class="inp" onchange="app.onSel()"></div>
         <div><label class="lbl">班別</label><select id="att-class" class="inp" onchange="app.onSel()"></select></div>
         <div><label class="lbl">顯示</label>
@@ -60,7 +62,16 @@
         <div class="col-span-2 md:col-span-2"><button class="btn bg-blue-600 w-full text-lg" onclick="app.loadList(true)">重新載入</button></div>
       </div>
       <div id="att-note" class="hidden mb-3 p-2 bg-amber-50 border border-amber-300 rounded text-sm text-amber-800"></div>
-      <div id="att-stats" class="hidden mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm font-bold flex flex-wrap gap-2"></div>
+      <div id="att-bar" class="hidden sticky top-0 z-20 bg-gray-100 pb-1">
+        <div class="flex flex-wrap items-center gap-1.5 py-1">
+          <span id="att-sum" class="font-bold text-sm"></span>
+          <button id="gb-all" class="gb" onclick="app.setG('all')">全班</button><button id="gb-M" class="gb" onclick="app.setG('M')">男</button><button id="gb-F" class="gb" onclick="app.setG('F')">女</button>
+          <span class="flex-1"></span>
+          <button id="vb-grid" class="gb" onclick="app.setView('grid')">▦ 格仔</button><button id="vb-list" class="gb" onclick="app.setView('list')">☰ 列表</button>
+          <button class="gb" onclick="app.openFilter()">更改班別</button>
+        </div>
+        <div id="att-stats" class="hidden p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs font-bold flex flex-wrap gap-1.5"></div>
+      </div>
       <div id="att-list"></div>
       <div id="att-submit" class="hidden sticky bottom-3 z-10 text-right">
         <button id="submit-btn" class="btn bg-green-600 text-lg md:text-xl rounded-full px-8 py-4 w-full md:w-auto border-2 border-white" onclick="app.submit()">✅ 提交點名紀錄</button>
@@ -153,6 +164,12 @@
   </main>
 </div>
 
+<!-- 學生狀態選單（格仔視圖） -->
+<div id="sheet" class="hidden fixed inset-0 z-40">
+  <div class="absolute inset-0 bg-black/40" onclick="app.closeSheet()"></div>
+  <div id="sheet-body" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4 shadow-2xl max-h-[85vh] overflow-y-auto"></div>
+</div>
+
 <!-- 載入中 -->
 <div id="busy" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50">
   <div class="bg-white p-8 rounded-xl text-center"><div class="loader rounded-full border-4 border-gray-200 h-12 w-12 mb-3 mx-auto"></div><div class="font-bold">與伺服器同步中…</div></div>
@@ -160,6 +177,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
+const APP_VERSION = '2.4.1'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -176,6 +194,8 @@ const app = {
     const d0 = new Date(Date.now() - 30 * 864e5); $('h-from').value = new Date(d0 - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const t0 = new Date(), y0 = t0.getMonth() >= 8 ? t0.getFullYear() : t0.getFullYear() - 1;
     $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部'); this.colPanel();
+    let v = null; try { v = localStorage.getItem('pe_view'); } catch (_) {}
+    this.vw = (v === 'grid' || v === 'list') ? v : (window.innerWidth < 1024 ? 'grid' : 'list'); // 手機／平板預設格仔，電腦預設列表
   },
   today() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); },
 
@@ -186,6 +206,8 @@ const app = {
     try {
       const u = await this.api('whoami', {});
       this.s.role = u.role; $('who').textContent = '（' + u.email + '）';
+      const vw = $('ver-warn');
+      if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
       $('nav-students').classList.toggle('hidden', u.role !== 'admin');
       $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
     } catch (e) { this.s.token = ''; $('login-msg').textContent = e.message; }
@@ -193,7 +215,7 @@ const app = {
   logout(msg) {
     this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false };
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
-    $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden'));
+    $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
   },
   nav(n) { ['attendance', 'students', 'history', 'summary'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n)); },
 
@@ -232,10 +254,73 @@ const app = {
       r.students.forEach(s => { if (r.saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(r.saved[s.StudentID]); this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]); n++; } else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' }; });
       const note = $('att-note'); note.classList.toggle('hidden', !n);
       note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：只會更新你修改過的學生（淺黃底），其他學生的紀錄不受影響。` : '';
-      $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.dirty = false; this.render(); ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
+      $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false; this.render(); ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
     } catch (e) { this.clear(); alert('錯誤：' + e.message); }
   },
-  render() {
+  render() { if (this.vw === 'grid') this.renderGrid(); else this.renderList(); this.bar(); },
+  bar() {
+    const has = this.s.students.length > 0, g = $('att-gender').value;
+    $('att-bar').classList.toggle('hidden', !has);
+    $('att-filter').classList.toggle('hidden', has && !this.s.filterOpen); // 載入名單後自動收起篩選區
+    if (!has) return;
+    $('att-sum').textContent = ($('att-class').value || '') + ' ' + $('att-date').value;
+    ['all', 'M', 'F'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('gb-' + k).classList.toggle(c, g === k)));
+    ['grid', 'list'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
+  },
+  setG(k) { $('att-gender').value = k; this.render(); },
+  setView(v) { this.vw = v; try { localStorage.setItem('pe_view', v); } catch (_) {} this.render(); },
+  openFilter() { this.s.filterOpen = true; this.bar(); window.scrollTo(0, 0); },
+  shownIdx() { const g = $('att-gender').value; return this.s.students.map((s, i) => i).filter(i => g === 'all' || this.gOf(this.s.students[i]) === g); },
+
+  // ----- 格仔視圖 -----
+  renderGrid() {
+    const y = window.scrollY, g = $('att-gender').value, upd = this.hasSaved(), idx = this.shownIdx();
+    if (!idx.length) { $('att-list').innerHTML = '<div class="card text-center text-gray-500">沒有符合的學生</div>'; this.stats([]); return; }
+    const tile = i => {
+      const s = this.s.students[i], a = this.s.att[s.StudentID], rem = String(s.PERemarks || '').trim(), cant = s.PEAbility === 'cannot_play';
+      let c, label;
+      if (a.p === '出席') { c = a.mods.length ? 'bg-yellow-100 border-yellow-400 text-yellow-900' : 'bg-green-100 border-green-400 text-green-900'; label = a.mods.length ? a.mods.join('、') : '出席'; }
+      else if (a.p === '缺席') { c = 'bg-red-500 border-red-600 text-white'; label = '缺席'; }
+      else if (a.p === '比賽') { c = 'bg-blue-500 border-blue-600 text-white'; label = '比賽'; }
+      else { c = 'bg-gray-600 border-gray-700 text-white'; label = a.other ? '其他:' + a.other : '其他'; }
+      const dot = cant ? 'bg-red-500' : rem ? 'bg-yellow-400' : 'bg-green-500';
+      const cnt = (s.absCount ? '缺' + s.absCount : '') + (s.noUniformCount ? ' 衫' + s.noUniformCount : '');
+      const chg = upd && this.isChanged(s) ? ' ring-2 ring-amber-400 ring-offset-1' : '';
+      return `<button class="relative rounded-lg border-2 px-0.5 pt-4 pb-3 min-h-[72px] text-center leading-tight ${c}${chg}" onclick="app.openSheet(${i})"><span class="absolute top-0.5 left-1 text-[10px] opacity-70">${esc(s.StudentNo)}</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${dot}"></span><span class="block font-bold text-sm break-all">${esc(s.ChiName)}</span><span class="block text-[11px] truncate">${esc(label)}</span>${cnt ? `<span class="absolute bottom-0.5 right-1 text-[9px] opacity-80">${cnt}</span>` : ''}</button>`;
+    };
+    $('att-list').innerHTML = `<div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">${idx.map(tile).join('')}</div><div class="text-xs text-gray-500 mt-2">撳學生格仔改狀態。右上圓點：🟢 正常　🟡 有備註可上堂　🔴 免上堂；右下「缺／衫」＝累計缺席／冇帶衫次數</div>`;
+    this.stats(idx.map(i => this.s.students[i]));
+    const nchg = idx.filter(i => this.isChanged(this.s.students[i])).length, lbl = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學';
+    $('submit-btn').textContent = upd ? '✅ 更新點名（' + nchg + ' 人有修改）' : '✅ 提交點名紀錄（' + lbl + ' ' + idx.length + ' 人）';
+    window.scrollTo(0, y);
+  },
+  openSheet(i) { this.s.sheetI = i; $('sheet').classList.remove('hidden'); this.sheetRender(); },
+  closeSheet() { this.s.sheetI = null; $('sheet').classList.add('hidden'); },
+  sheetP(p) { const i = this.s.sheetI; if (i == null) return; this.setP(i, p); if (p === '其他') this.sheetRender(); else this.closeSheet(); }, // 出席／缺席／比賽：選好即收起
+  sheetMod(m) { if (this.s.sheetI == null) return; this.togMod(this.s.sheetI, m); this.sheetRender(); },
+  async sheetAbility() { if (this.s.sheetI == null) return; await this.togAbility(this.s.sheetI); this.sheetRender(); },
+  sheetNav(d) {
+    const idx = this.shownIdx(), p = idx.indexOf(this.s.sheetI), n = idx[p + d];
+    if (p < 0 || n === undefined) return alert(d > 0 ? '已是最後一位' : '已是第一位');
+    this.openSheet(n);
+  },
+  sheetRender() {
+    const i = this.s.sheetI; if (i == null) return;
+    const s = this.s.students[i], a = this.s.att[s.StudentID], cant = s.PEAbility === 'cannot_play', rem = String(s.PERemarks || '').trim();
+    const ab = cant ? ['bg-red-500', '🔴免上堂'] : rem ? ['bg-yellow-500', '🟡可上堂'] : ['bg-green-500', '🟢正常'];
+    const big = 'min-h-[56px] rounded-xl font-bold border-2 ';
+    const on = { '出席': a.mods.length ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-green-500 text-white border-green-600', '缺席': 'bg-red-500 text-white border-red-600', '比賽': 'bg-blue-500 text-white border-blue-600', '其他': 'bg-gray-600 text-white border-gray-700' };
+    const pbtn = p => `<button class="${big}text-base ${a.p === p ? on[p] : 'bg-gray-100 text-gray-700 border-gray-200'}" onclick="app.sheetP('${p}')">${p}</button>`;
+    const mods = a.p !== '出席' ? '' : `<div class="grid grid-cols-3 gap-2 mt-3">${MODS.map(m => `<button class="${big}text-base ${a.mods.includes(m) ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-white text-gray-700 border-gray-300'}" onclick="app.sheetMod('${m}')">${m}</button>`).join('')}</div><div class="text-xs text-yellow-800 mt-1">冇帶衫／受傷／見社工：仍然計出席</div>`;
+    const other = a.p !== '其他' ? '' : `<input class="inp mt-3 text-base" placeholder="原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" oninput="app.setOther(${i},this.value)">`;
+    const hist = (s.absCount ? `<div class="text-sm"><b class="text-red-600">缺席 ${s.absCount} 次：</b>${esc(s.absDates)}</div>` : '') + (s.noUniformCount ? `<div class="text-sm"><b class="text-yellow-700">冇帶衫 ${s.noUniformCount} 次：</b>${esc(s.noUniformDates)}</div>` : '');
+    $('sheet-body').innerHTML = `<div class="flex items-center justify-between mb-2"><div class="text-lg"><span class="text-gray-500 mr-2">${esc(s.StudentNo)}</span><b class="text-blue-800">${esc(s.ChiName)}</b>${s.House ? ` <span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : ''}</div><button class="px-4 py-2 text-2xl text-gray-500" onclick="app.closeSheet()">✕</button></div>` +
+      `<div class="flex flex-wrap items-center gap-2 mb-3"><button class="px-3 rounded text-sm font-bold text-white min-h-[40px] ${ab[0]}" onclick="app.sheetAbility()">${ab[1]}</button>${rem ? `<span class="text-sm text-gray-600">${esc(rem)}</span>` : ''}</div>` +
+      `<div class="grid grid-cols-4 gap-2">${PRIMARY.map(pbtn).join('')}</div>${mods}${other}<div class="mt-3 space-y-1">${hist}</div>` +
+      `<div class="grid grid-cols-3 gap-2 mt-4"><button class="btn bg-gray-500" onclick="app.sheetNav(-1)">◀ 上一位</button><button class="btn bg-blue-600" onclick="app.closeSheet()">完成</button><button class="btn bg-gray-500" onclick="app.sheetNav(1)">下一位 ▶</button></div>`;
+  },
+
+  renderList() {
     const y = window.scrollY, g = $('att-gender').value, upd = this.hasSaved();
     const list = this.s.students.map((s, i) => [s, i]).filter(([s]) => g === 'all' || this.gOf(s) === g);
     if (!list.length) { $('att-list').innerHTML = '<div class="card text-center text-gray-500">沒有符合的學生</div>'; this.stats([]); return; }
@@ -274,8 +359,8 @@ const app = {
     shown = shown || this.s.students;
     const c = { ok: 0, '冇帶衫': 0, '受傷': 0, '見社工': 0, '缺席': 0, '比賽': 0, '其他': 0 };
     shown.map(s => this.s.att[s.StudentID]).forEach(a => { if (a.p === '出席') { if (!a.mods.length) c.ok++; a.mods.forEach(m => c[m]++); } else c[a.p]++; });
-    const b = (t, n, col) => n ? `<div class="px-2 py-1 rounded border ${col}">${t}：<span class="text-lg">${n}</span></div>` : '';
-    $('att-stats').innerHTML = `<div class="px-2 py-1 rounded border bg-gray-100">總人數：<span class="text-lg">${shown.length}</span></div>` +
+    const b = (t, n, col) => n ? `<div class="px-2 py-1 rounded border ${col}">${t}：<span class="text-base">${n}</span></div>` : '';
+    $('att-stats').innerHTML = `<div class="px-2 py-1 rounded border bg-gray-100">總人數：<span class="text-base">${shown.length}</span></div>` +
       b('🟢 正常出席', c.ok, 'bg-green-100 border-green-300 text-green-800') + b('🟡 冇帶衫', c['冇帶衫'], 'bg-yellow-100 border-yellow-300 text-yellow-800') + b('🟡 受傷', c['受傷'], 'bg-orange-100 border-orange-300 text-orange-800') +
       b('🟡 見社工', c['見社工'], 'bg-teal-100 border-teal-300 text-teal-800') + b('🔴 缺席', c['缺席'], 'bg-red-100 border-red-300 text-red-800') + b('🔵 比賽', c['比賽'], 'bg-blue-100 border-blue-300 text-blue-800') + b('⚪ 其他', c['其他'], 'bg-gray-100 border-gray-300');
   },
@@ -314,7 +399,7 @@ const app = {
     if (L && (L.cls !== cls || L.date !== date) && this.s.dirty && !confirm('目前有未提交的修改，切換後會遺失。確定切換？')) { $('att-class').value = L.cls; $('att-date').value = L.date; return; }
     if (cls && date) this.loadList(); else this.clear();
   },
-  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.loaded = null; this.s.dirty = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); },
+  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.loaded = null; this.s.dirty = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet(); this.bar(); },
   gOf(s) { const v = String(s.Gender || '').trim().toUpperCase(); return (v === 'M' || v === '男' || v === 'MALE') ? 'M' : (v === 'F' || v === '女' || v === 'FEMALE') ? 'F' : ''; },
   houseLbl(h) { h = String(h || '').trim(); return !h ? '' : (h.slice(-1) === '社' ? h : h + '社'); },
   houseCls(h) { return ({ '紅': 'bg-red-100 text-red-700', '藍': 'bg-blue-100 text-blue-700', '黃': 'bg-yellow-100 text-yellow-700', '綠': 'bg-green-100 text-green-700' })[String(h).trim()[0]] || 'bg-gray-100 text-gray-700'; },
