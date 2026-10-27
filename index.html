@@ -227,16 +227,16 @@ const app = {
       const r = await this.api('getStudents', { classCode: cls, date });
       if (!r.students.length) { this.clear(); return alert('找不到 ' + cls + ' 班的學生紀錄。'); }
       r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
-      this.s.students = r.students; this.s.att = {};
+      this.s.students = r.students; this.s.att = {}; this.s.origNorm = {};
       let n = 0;
-      r.students.forEach(s => { if (r.saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(r.saved[s.StudentID]); n++; } else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' }; });
+      r.students.forEach(s => { if (r.saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(r.saved[s.StudentID]); this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]); n++; } else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' }; });
       const note = $('att-note'); note.classList.toggle('hidden', !n);
-      note.textContent = n ? `已載入 ${date} ${cls} 班已儲存的紀錄（${n} 人）；修改後需再按「提交」才會更新。` : '';
+      note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：只會更新你修改過的學生（淺黃底），其他學生的紀錄不受影響。` : '';
       $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.dirty = false; this.render(); ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
     } catch (e) { this.clear(); alert('錯誤：' + e.message); }
   },
   render() {
-    const y = window.scrollY, g = $('att-gender').value;
+    const y = window.scrollY, g = $('att-gender').value, upd = this.hasSaved();
     const list = this.s.students.map((s, i) => [s, i]).filter(([s]) => g === 'all' || this.gOf(s) === g);
     if (!list.length) { $('att-list').innerHTML = '<div class="card text-center text-gray-500">沒有符合的學生</div>'; this.stats([]); return; }
     const rows = list.map(([s, i]) => {
@@ -251,14 +251,15 @@ const app = {
       const cant = s.PEAbility === 'cannot_play', chip = 'px-2 rounded text-xs font-bold min-h-[32px] ';
       const ab = cant ? ['bg-red-500', '🔴免上堂'] : String(s.PERemarks || '').trim() ? ['bg-yellow-500', '🟡可上堂'] : ['bg-green-500', '🟢正常'];
       const house = s.House ? `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : '';
-      return `<div class="bg-white rounded border px-2 py-1.5 mb-1.5 md:flex md:items-center md:gap-3">
+      return `<div class="bg-white rounded border px-2 py-1.5 mb-1.5 md:flex md:items-center md:gap-3 ${upd && this.isChanged(s) ? '!border-amber-400 !bg-amber-50' : ''}">
         <div class="md:w-80 flex items-center gap-1.5 flex-wrap mb-1 md:mb-0">
           <span class="text-gray-400 text-sm w-6">${esc(s.StudentNo)}</span><span class="font-bold text-blue-800">${esc(s.ChiName)}</span>${house}
           <button class="${chip}text-white ${ab[0]}" onclick="app.togAbility(${i})">${ab[1]}</button>${s.absCount ? `<button class="${chip}bg-red-100 text-red-700" onclick="app.dates(${i},'abs')">缺席${s.absCount}</button>` : ''}${s.noUniformCount ? `<button class="${chip}bg-yellow-100 text-yellow-700" onclick="app.dates(${i},'uni')">冇帶衫${s.noUniformCount}</button>` : ''}${s.PERemarks ? `<span class="text-xs text-gray-500">${esc(s.PERemarks)}</span>` : ''}</div>
         <div class="flex-1"><div class="flex">${pb}</div>${mods}${other}</div></div>`;
     }).join('');
     $('att-list').innerHTML = `<div class="font-bold mb-1">${g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學'}（${list.length} 人）</div>` + rows; this.stats(list.map(x => x[0]));
-    $('submit-btn').textContent = '✅ 提交點名紀錄（' + (g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學') + ' ' + list.length + ' 人）';
+    const nchg = list.filter(([s]) => this.isChanged(s)).length;
+    $('submit-btn').textContent = upd ? '✅ 更新點名（' + nchg + ' 人有修改）' : '✅ 提交點名紀錄（' + (g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學') + ' ' + list.length + ' 人）';
     window.scrollTo(0, y);
   },
   setP(i, p) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID]; a.p = p; if (p !== '出席') a.mods = []; if (p !== '其他') a.other = ''; this.render(); },
@@ -278,30 +279,42 @@ const app = {
       b('🟢 正常出席', c.ok, 'bg-green-100 border-green-300 text-green-800') + b('🟡 冇帶衫', c['冇帶衫'], 'bg-yellow-100 border-yellow-300 text-yellow-800') + b('🟡 受傷', c['受傷'], 'bg-orange-100 border-orange-300 text-orange-800') +
       b('🟡 見社工', c['見社工'], 'bg-teal-100 border-teal-300 text-teal-800') + b('🔴 缺席', c['缺席'], 'bg-red-100 border-red-300 text-red-800') + b('🔵 比賽', c['比賽'], 'bg-blue-100 border-blue-300 text-blue-800') + b('⚪ 其他', c['其他'], 'bg-gray-100 border-gray-300');
   },
+  statusOf(a) {
+    let st = a.p;
+    if (a.p === '出席' && a.mods.length) st = '出席 (' + a.mods.join(', ') + ')';
+    if (a.p === '其他') st = a.other ? '其他: ' + a.other : '其他';
+    return st;
+  },
+  hasSaved() { return Object.keys(this.s.origNorm || {}).length > 0; },
+  isChanged(s) { const o = (this.s.origNorm || {})[s.StudentID]; return o === undefined || this.statusOf(this.s.att[s.StudentID]) !== o; },
   async submit() {
     if (this.s.busy) return;
-    const cls = $('att-class').value, date = $('att-date').value;
-    const g = $('att-gender').value, label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學';
-    const records = this.s.students.filter(s => g === 'all' || this.gOf(s) === g).map(s => {
-      const a = this.s.att[s.StudentID]; let st = a.p;
-      if (a.p === '出席' && a.mods.length) st = '出席 (' + a.mods.join(', ') + ')';
-      if (a.p === '其他') st = a.other ? '其他: ' + a.other : '其他';
-      return { StudentID: s.StudentID, AttendanceStatus: st };
-    });
-    if (!records.length) return alert('目前沒有可提交的學生');
-    if (!confirm(`確認提交 ${cls}（${date}）【${label}】的點名紀錄？\n共 ${records.length} 人。只會儲存目前顯示的學生，其他學生的紀錄不受影響。`)) return;
+    const cls = $('att-class').value, date = $('att-date').value, g = $('att-gender').value;
+    const label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學', upd = this.hasSaved();
+    const shown = this.s.students.filter(s => g === 'all' || this.gOf(s) === g);
+    const target = upd ? shown.filter(s => this.isChanged(s)) : shown; // 同日已有紀錄：只送出有修改（或未儲存）的學生
+    if (!target.length) return alert(upd ? '沒有任何修改，毋須更新。' : '目前沒有可提交的學生');
+    const records = target.map(s => ({ StudentID: s.StudentID, AttendanceStatus: this.statusOf(this.s.att[s.StudentID]) }));
+    const names = target.slice(0, 8).map(s => s.ChiName).join('、') + (target.length > 8 ? '…' : '');
+    const msg = upd ? `更新 ${cls}（${date}）的點名紀錄？\n只會更新 ${target.length} 名學生：${names}\n其他學生的紀錄不受影響。`
+                    : `確認提交 ${cls}（${date}）【${label}】的點名紀錄？\n共 ${records.length} 人。只會儲存目前顯示的學生，其他學生的紀錄不受影響。`;
+    if (!confirm(msg)) return;
     this.s.busy = true; $('submit-btn').disabled = true;
-    try { const r = await this.api('saveAttendance', { sessionData: { classCode: cls, date, group: g }, records }); this.s.dirty = false; alert('✅ ' + r.message + (g !== 'all' ? '\n如另一組亦要點名，請切換「顯示」後再提交。' : '')); }
-    catch (e) { alert('❌ 提交失敗，資料未確認儲存：\n' + e.message); }
+    try {
+      const r = await this.api('saveAttendance', { sessionData: { classCode: cls, date, group: g, mode: upd ? 'update' : 'full' }, records });
+      this.s.origNorm = this.s.origNorm || {};
+      target.forEach(s => this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]));
+      this.s.dirty = false; this.render();
+      alert('✅ ' + r.message + (!upd && g !== 'all' ? '\n如另一組亦要點名，請切換「顯示」後再提交。' : ''));
+    } catch (e) { alert('❌ 提交失敗，資料未確認儲存：\n' + e.message); }
     finally { this.s.busy = false; $('submit-btn').disabled = false; }
   },
-
   onSel() {
     const cls = $('att-class').value, date = $('att-date').value, L = this.s.loaded;
     if (L && (L.cls !== cls || L.date !== date) && this.s.dirty && !confirm('目前有未提交的修改，切換後會遺失。確定切換？')) { $('att-class').value = L.cls; $('att-date').value = L.date; return; }
     if (cls && date) this.loadList(); else this.clear();
   },
-  clear() { this.s.students = []; this.s.att = {}; this.s.loaded = null; this.s.dirty = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); },
+  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.loaded = null; this.s.dirty = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); },
   gOf(s) { const v = String(s.Gender || '').trim().toUpperCase(); return (v === 'M' || v === '男' || v === 'MALE') ? 'M' : (v === 'F' || v === '女' || v === 'FEMALE') ? 'F' : ''; },
   houseLbl(h) { h = String(h || '').trim(); return !h ? '' : (h.slice(-1) === '社' ? h : h + '社'); },
   houseCls(h) { return ({ '紅': 'bg-red-100 text-red-700', '藍': 'bg-blue-100 text-blue-700', '黃': 'bg-yellow-100 text-yellow-700', '綠': 'bg-green-100 text-green-700' })[String(h).trim()[0]] || 'bg-gray-100 text-gray-700'; },
