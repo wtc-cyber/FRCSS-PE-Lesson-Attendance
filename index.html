@@ -65,6 +65,7 @@
       <div id="att-bar" class="hidden sticky top-0 z-20 bg-gray-100 pb-1">
         <div class="flex flex-wrap items-center gap-1.5 py-1">
           <span id="att-sum" class="font-bold text-sm"></span>
+          <input type="date" id="att-date2" class="gb" onchange="app.setDate(this.value)"><button class="gb" onclick="app.setDate(app.today())">今日</button>
           <button id="gb-all" class="gb" onclick="app.setG('all')">全班</button><button id="gb-M" class="gb" onclick="app.setG('M')">男</button><button id="gb-F" class="gb" onclick="app.setG('F')">女</button>
           <span class="flex-1"></span>
           <button id="vb-grid" class="gb" onclick="app.setView('grid')">▦ 格仔</button><button id="vb-list" class="gb" onclick="app.setView('list')">☰ 列表</button>
@@ -263,12 +264,13 @@ const app = {
     $('att-bar').classList.toggle('hidden', !has);
     $('att-filter').classList.toggle('hidden', has && !this.s.filterOpen); // 載入名單後自動收起篩選區
     if (!has) return;
-    $('att-sum').textContent = ($('att-class').value || '') + ' ' + $('att-date').value;
+    $('att-sum').textContent = $('att-class').value || ''; $('att-date2').value = $('att-date').value;
     ['all', 'M', 'F'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('gb-' + k).classList.toggle(c, g === k)));
     ['grid', 'list'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
   },
   setG(k) { $('att-gender').value = k; this.render(); },
   setView(v) { this.vw = v; try { localStorage.setItem('pe_view', v); } catch (_) {} this.render(); },
+  setDate(v) { if (!v) return; $('att-date').value = v; this.onSel(); this.bar(); }, // 預設今日，可隨時改日期；已有紀錄會自動載入
   openFilter() { this.s.filterOpen = true; this.bar(); window.scrollTo(0, 0); },
   shownIdx() { const g = $('att-gender').value; return this.s.students.map((s, i) => i).filter(i => g === 'all' || this.gOf(this.s.students[i]) === g); },
 
