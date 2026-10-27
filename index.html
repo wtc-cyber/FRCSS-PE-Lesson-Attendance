@@ -159,8 +159,8 @@
       </div>
       <div class="bg-white rounded shadow overflow-x-auto"><table class="w-full text-left text-sm">
         <thead class="bg-gray-100" id="s-head"></thead>
-        <tbody id="s-body"><tr><td colspan="13" class="p-4 text-center text-gray-500">請按「統計」</td></tr></tbody></table></div>
-      <p class="text-xs text-gray-500 mt-2">點擊表頭可排序；點擊學生可展開日期。冇帶衫、受傷、見社工已包含在「出席」內；缺席率 = 缺席 ÷（總節數 − 比賽）；「其他」（例如病假）不計入缺席，請自行判斷。</p>
+        <tbody id="s-body"><tr><td colspan="14" class="p-4 text-center text-gray-500">請按「統計」</td></tr></tbody></table></div>
+      <p class="text-xs text-gray-500 mt-2">點擊表頭可排序；點擊學生可展開日期。冇帶衫、受傷、見社工已包含在「出席」內；缺席率 = 缺席 ÷（總節數 − 比賽）；出席率 = 出席 ÷（總節數 − 比賽）；「其他」（例如病假）不計入缺席，請自行判斷。</p>
     </section>
   </main>
 </div>
@@ -180,7 +180,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
 const APP_VERSION = '2.4.1'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
-const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率']];
+const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -461,7 +461,8 @@ const app = {
     if (!this.s.sumCfg) {
       let c = null; try { c = JSON.parse(localStorage.getItem('pe_sum_cols')); } catch (_) {}
       const all = SUMDEF.map(x => x[0]);
-      if (!c || !Array.isArray(c.order) || c.order.length !== all.length || all.some(k => !c.order.includes(k))) c = { order: all.slice(), hidden: [] };
+      if (!c || !Array.isArray(c.order)) c = { order: all.slice(), hidden: [] };
+      c.order = c.order.filter(k => all.includes(k)); all.forEach(k => { if (!c.order.includes(k)) c.order.push(k); }); // 新增欄位自動加到最後，保留你原有的順序
       c.hidden = (c.hidden || []).filter(k => all.includes(k)); this.s.sumCfg = c;
     }
     return this.s.sumCfg;
@@ -482,10 +483,10 @@ const app = {
     $('s-cols').innerHTML = c.order.map(k => `<div class="flex items-center gap-2 py-1"><label class="flex-1 flex items-center gap-2 text-base"><input type="checkbox" class="w-5 h-5" ${c.hidden.includes(k) ? '' : 'checked'} onchange="app.togCol('${k}')">${lab[k]}</label><button class="px-3 py-2 border rounded min-h-[40px]" onclick="app.moveCol('${k}',-1)">▲</button><button class="px-3 py-2 border rounded min-h-[40px]" onclick="app.moveCol('${k}',1)">▼</button></div>`).join('') + '<button class="text-blue-600 font-bold underline mt-2" onclick="app.resetCols()">恢復預設順序</button>';
   },
   renderSum() {
-    const NUM = ['total', 'present', 'abs', 'uni', 'inj', 'sw', 'comp', 'oth', 'rate'];
+    const NUM = ['total', 'present', 'abs', 'uni', 'inj', 'sw', 'comp', 'oth', 'rate', 'prate'];
     const ta = Number($('s-tabs').value) || 3, tu = Number($('s-tuni').value) || 3, k = this.s.sortK || 'abs', dir = this.s.sortD || -1;
     const cols = this.visCols(), lab = Object.fromEntries(SUMDEF);
-    let v = (this.s.sum || []).map(r => Object.assign({}, r, { rate: (r.total - r.comp) > 0 ? r.abs / (r.total - r.comp) : 0 }));
+    let v = (this.s.sum || []).map(r => Object.assign({}, r, { rate: (r.total - r.comp) > 0 ? r.abs / (r.total - r.comp) : 0, prate: (r.total - r.comp) > 0 ? r.present / (r.total - r.comp) : 0 }));
     if ($('s-flag').checked) v = v.filter(r => r.abs >= ta || r.uni >= tu);
     v.sort((a, b) => {
       let x = a[k], y = b[k];
@@ -498,7 +499,7 @@ const app = {
     $('s-info').textContent = `共 ${v.length} 人（紅色＝缺席 ≥ ${ta}；黃色＝冇帶衫 ≥ ${tu}）`;
     const cell = (key, r) => {
       const c = key === 'abs' && r.abs >= ta ? 'bg-red-100 text-red-700 font-bold' : key === 'uni' && r.uni >= tu ? 'bg-yellow-100 text-yellow-700 font-bold' : key === 'ChiName' ? 'font-bold' : '';
-      const val = key === 'rate' ? (r.rate * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
+      const val = (key === 'rate' || key === 'prate') ? (r[key] * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
       return `<td class="p-2 ${c}">${esc(val)}</td>`;
     };
     const dl = (t, a) => a.length ? `<div><b>${t}：</b>${esc(a.join('、'))}</div>` : '';
@@ -511,7 +512,7 @@ const app = {
     const v = this.s.sumView || [];
     if (!v.length) return alert('請先按「統計」後再匯出！');
     const cols = this.visCols(), lab = Object.fromEntries(SUMDEF);
-    const val = (key, r) => key === 'rate' ? (r.rate * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
+    const val = (key, r) => (key === 'rate' || key === 'prate') ? (r[key] * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
     const rows = v.map(r => cols.map(key => val(key, r)).concat([r.d.abs.join(' '), r.d.uni.join(' '), r.d.oth.join(' ')]).map(x => this.csvCell(x)).join(','));
     this.download('FRCSS_Student_Summary_' + this.today() + '.csv', cols.map(key => lab[key]).concat(['缺席日期', '冇帶衫日期', '其他日期']).join(',') + '\n' + rows.join('\n'));
   },
