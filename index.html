@@ -107,6 +107,28 @@
         <input type="file" id="ab-file" accept=".csv" class="inp mb-4">
         <button class="btn bg-blue-600" onclick="app.importAbility()">上載並更新</button>
       </div>
+      <div class="card">
+        <h3 class="font-bold mb-2">匯入歷史點名（橫向表：每行一位學生、每列一個日期）</h3>
+        <ul class="text-sm text-gray-600 list-disc list-inside mb-3">
+          <li>每次匯入一個班；表頭需有「No.」（學號）及日期欄（例：14/9、21/9），有「中文姓名」欄會用來核對學生</li>
+          <li>請先匯入該班學生名單。日期欄可逐個剔選，沒有上課的日子請取消剔選；代碼意思可自行對應</li>
+        </ul>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div><label class="lbl">班別</label><select id="hi-class" class="inp"></select></div>
+          <div><label class="lbl">學年開始年份</label><input type="number" id="hi-year" class="inp"></div>
+          <div class="col-span-2"><label class="lbl">CSV 檔案</label><input type="file" id="hi-file" accept=".csv" class="inp" onchange="app.hiLoad()"></div>
+        </div>
+        <div id="hi-opts" class="hidden">
+          <div class="lbl">日期欄（剔選要匯入的）</div><div id="hi-dates" class="flex flex-wrap gap-2 mb-3"></div>
+          <div class="lbl">代碼對應</div><div id="hi-map" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3"></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div><label class="lbl">日期欄留空時</label><select id="hi-blank" class="inp"><option value="present">視為出席</option><option value="skip">略過（不寫入）</option></select></div>
+            <div><label class="lbl">已有同日紀錄時</label><select id="hi-over" class="inp"><option value="skip">略過（不覆蓋）</option><option value="over">覆蓋</option></select></div>
+          </div>
+          <button class="btn bg-blue-600" onclick="app.hiPreview()">預覽</button>
+        </div>
+        <div id="hi-result"></div>
+      </div>
       <div class="card border border-red-200 bg-red-50">
         <h3 class="font-bold text-red-700 mb-3">洗底（清除點名紀錄，執行前會自動備份）</h3>
         <div class="flex flex-col md:flex-row gap-3 md:items-end">
@@ -127,14 +149,15 @@
         <div><label class="lbl">至</label><input type="date" id="h-to" class="inp"></div>
         <div><label class="lbl">班別</label><select id="h-class" class="inp"></select></div>
         <div><label class="lbl">姓名／學號</label><input id="h-kw" class="inp" placeholder="例：陳大文 或 05"></div>
-        <div><label class="lbl">狀態</label><select id="h-status" class="inp"><option value="">全部</option><option>正常出席</option><option>冇帶衫</option><option>受傷</option><option>見社工</option><option>缺席</option><option>比賽</option><option>其他</option></select></div>
+        <div><label class="lbl">狀態</label><select id="h-status" class="inp"><option value="">全部</option><option value="出席">出席（含特殊狀況）</option><option>正常出席</option><option>冇帶衫</option><option>受傷</option><option>見社工</option><option>缺席</option><option>比賽</option><option>其他</option></select></div>
         <button class="btn bg-blue-600" onclick="app.loadHist()">搜尋</button>
       </div>
       <div class="flex gap-3 mb-3 items-center"><button class="btn bg-green-600" onclick="app.exportHist()">匯出 CSV（明細）</button><span id="h-info" class="text-sm text-gray-600"></span></div>
       <h3 class="font-bold mb-2">課堂統計（按目前篩選結果）</h3>
       <div class="bg-white rounded shadow overflow-x-auto mb-6"><table class="w-full text-left text-sm">
-        <thead class="bg-gray-100"><tr><th class="p-2">日期</th><th class="p-2">班別</th><th class="p-2">人數</th><th class="p-2">正常出席</th><th class="p-2">冇帶衫</th><th class="p-2">受傷</th><th class="p-2">見社工</th><th class="p-2">缺席</th><th class="p-2">比賽</th><th class="p-2">其他</th><th class="p-2">操作</th></tr></thead>
+        <thead class="bg-gray-100"><tr><th class="p-2">日期</th><th class="p-2">班別</th><th class="p-2">人數</th><th class="p-2">出席（合計）</th><th class="p-2">冇帶衫</th><th class="p-2">受傷</th><th class="p-2">見社工</th><th class="p-2">缺席</th><th class="p-2">比賽</th><th class="p-2">其他</th><th class="p-2">操作</th></tr></thead>
         <tbody id="h-sum"><tr><td colspan="11" class="p-4 text-center text-gray-500">請按「搜尋」</td></tr></tbody></table></div>
+      <p class="text-xs text-gray-500 mb-3">冇帶衫、受傷、見社工已包含在「出席（合計）」內。</p>
       <h3 class="font-bold mb-2">明細</h3>
       <div class="bg-white rounded shadow overflow-x-auto"><table class="w-full text-left text-sm">
         <thead class="bg-gray-100"><tr><th class="p-3">日期</th><th class="p-3">班別</th><th class="p-3">學號</th><th class="p-3">姓名</th><th class="p-3">社</th><th class="p-3">狀態</th></tr></thead>
@@ -178,7 +201,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.4.1'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.5.2'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -190,7 +213,8 @@ const app = {
 
   init() {
     const opts = (first) => (first ? `<option value="">${first}</option>` : '') + CLASSES.map(c => `<option>${c}</option>`).join('');
-    $('att-class').innerHTML = opts('選擇班別'); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts('');
+    $('att-class').innerHTML = opts('選擇班別'); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts(''); $('hi-class').innerHTML = opts('選擇班別');
+    const t1 = new Date(); $('hi-year').value = t1.getMonth() >= 8 ? t1.getFullYear() : t1.getFullYear() - 1;
     $('att-date').value = this.today(); $('h-to').value = this.today();
     const d0 = new Date(Date.now() - 30 * 864e5); $('h-from').value = new Date(d0 - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const t0 = new Date(), y0 = t0.getMonth() >= 8 ? t0.getFullYear() : t0.getFullYear() - 1;
@@ -360,11 +384,11 @@ const app = {
   stats(shown) {
     shown = shown || this.s.students;
     const c = { ok: 0, '冇帶衫': 0, '受傷': 0, '見社工': 0, '缺席': 0, '比賽': 0, '其他': 0 };
-    shown.map(s => this.s.att[s.StudentID]).forEach(a => { if (a.p === '出席') { if (!a.mods.length) c.ok++; a.mods.forEach(m => c[m]++); } else c[a.p]++; });
+    shown.map(s => this.s.att[s.StudentID]).forEach(a => { if (a.p === '出席') { c.ok++; a.mods.forEach(m => c[m]++); } else c[a.p]++; });
     const b = (t, n, col) => n ? `<div class="px-2 py-1 rounded border ${col}">${t}：<span class="text-base">${n}</span></div>` : '';
     $('att-stats').innerHTML = `<div class="px-2 py-1 rounded border bg-gray-100">總人數：<span class="text-base">${shown.length}</span></div>` +
-      b('🟢 正常出席', c.ok, 'bg-green-100 border-green-300 text-green-800') + b('🟡 冇帶衫', c['冇帶衫'], 'bg-yellow-100 border-yellow-300 text-yellow-800') + b('🟡 受傷', c['受傷'], 'bg-orange-100 border-orange-300 text-orange-800') +
-      b('🟡 見社工', c['見社工'], 'bg-teal-100 border-teal-300 text-teal-800') + b('🔴 缺席', c['缺席'], 'bg-red-100 border-red-300 text-red-800') + b('🔵 比賽', c['比賽'], 'bg-blue-100 border-blue-300 text-blue-800') + b('⚪ 其他', c['其他'], 'bg-gray-100 border-gray-300');
+      b('🟢 出席', c.ok, 'bg-green-100 border-green-300 text-green-800') + b('🟡 其中冇帶衫', c['冇帶衫'], 'bg-yellow-100 border-yellow-300 text-yellow-800') + b('🟡 其中受傷', c['受傷'], 'bg-orange-100 border-orange-300 text-orange-800') +
+      b('🟡 其中見社工', c['見社工'], 'bg-teal-100 border-teal-300 text-teal-800') + b('🔴 缺席', c['缺席'], 'bg-red-100 border-red-300 text-red-800') + b('🔵 比賽', c['比賽'], 'bg-blue-100 border-blue-300 text-blue-800') + b('⚪ 其他', c['其他'], 'bg-gray-100 border-gray-300');
   },
   statusOf(a) {
     let st = a.p;
@@ -421,11 +445,11 @@ const app = {
       const r = await this.api('getAttendanceHistory', { from: $('h-from').value, to: $('h-to').value, classCode: $('h-class').value, keyword: $('h-kw').value.trim(), status: $('h-status').value });
       this.s.hist = r.rows;
       $('h-info').textContent = `共 ${r.total} 筆` + (r.truncated ? '（超過上限，只載入首 20000 筆，請縮窄範圍）' : '');
-      const K = ['正常出席', '冇帶衫', '受傷', '見社工', '缺席', '比賽', '其他'], G = {}, order = [];
+      const K = ['出席', '冇帶衫', '受傷', '見社工', '缺席', '比賽', '其他'], G = {}, order = [];
       r.rows.forEach(x => {
         const k = x.Date + '|' + x.Class;
         if (!G[k]) { G[k] = { d: x.Date, c: x.Class, n: 0, k: {} }; K.forEach(t => G[k].k[t] = 0); order.push(k); }
-        G[k].n++; this.catOf(x.AttendanceStatus).forEach(t => G[k].k[t]++);
+        G[k].n++; if (String(x.AttendanceStatus).indexOf('出席') === 0) G[k].k['出席']++; this.catOf(x.AttendanceStatus).forEach(t => { if (t in G[k].k && t !== '出席') G[k].k[t]++; });
       });
       $('h-sum').innerHTML = order.length ? order.map(k => { const g = G[k];
         return `<tr class="border-b"><td class="p-2">${esc(g.d)}</td><td class="p-2 font-bold">${esc(g.c)}</td><td class="p-2">${g.n}</td>${K.map(t => `<td class="p-2">${g.k[t] || '-'}</td>`).join('')}<td class="p-2"><button class="text-blue-600 font-bold underline" onclick="app.openSession('${esc(g.d)}','${esc(g.c)}')">查看／修改</button></td></tr>`;
@@ -496,7 +520,8 @@ const app = {
     });
     this.s.sumView = v;
     $('s-head').innerHTML = '<tr>' + cols.map(key => `<th class="p-3 cursor-pointer whitespace-nowrap select-none" onclick="app.sortSum('${key}')">${lab[key]}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('') + '</tr>';
-    $('s-info').textContent = `共 ${v.length} 人（紅色＝缺席 ≥ ${ta}；黃色＝冇帶衫 ≥ ${tu}）`;
+    const ds = new Set(); (this.s.sum || []).forEach(r => (r.d.all || []).forEach(x => ds.add(x.slice(0, 10))));
+    $('s-info').textContent = `共 ${v.length} 人（紅色＝缺席 ≥ ${ta}；黃色＝冇帶衫 ≥ ${tu}）` + (ds.size ? `；涵蓋 ${ds.size} 個上課日：${[...ds].sort().map(x => x.slice(5)).join('、')}` : '');
     const cell = (key, r) => {
       const c = key === 'abs' && r.abs >= ta ? 'bg-red-100 text-red-700 font-bold' : key === 'uni' && r.uni >= tu ? 'bg-yellow-100 text-yellow-700 font-bold' : key === 'ChiName' ? 'font-bold' : '';
       const val = (key === 'rate' || key === 'prate') ? (r[key] * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
@@ -505,7 +530,7 @@ const app = {
     const dl = (t, a) => a.length ? `<div><b>${t}：</b>${esc(a.join('、'))}</div>` : '';
     $('s-body').innerHTML = v.length ? v.map((r, i) =>
       `<tr class="border-b cursor-pointer hover:bg-gray-50" onclick="app.togDetail(${i})">${cols.map(key => cell(key, r)).join('')}</tr>` +
-      `<tr id="sd-${i}" class="hidden bg-gray-50"><td colspan="${cols.length}" class="p-3 text-xs leading-6">${(dl('缺席', r.d.abs) + dl('冇帶衫', r.d.uni) + dl('受傷', r.d.inj) + dl('見社工', r.d.sw) + dl('其他', r.d.oth)) || '沒有紀錄'}</td></tr>`
+      `<tr id="sd-${i}" class="hidden bg-gray-50"><td colspan="${cols.length}" class="p-3 text-xs leading-6">${(dl('缺席', r.d.abs) + dl('冇帶衫', r.d.uni) + dl('受傷', r.d.inj) + dl('見社工', r.d.sw) + dl('其他', r.d.oth) + ((r.d.all || []).length ? '<div class="mt-1"><b>逐日紀錄（' + r.d.all.length + ' 節）：</b>' + esc(r.d.all.join('　')) + '</div>' : '')) || '沒有紀錄'}</td></tr>`
     ).join('') : `<tr><td colspan="${cols.length}" class="p-4 text-center text-gray-500">沒有資料</td></tr>`;
   },
   exportSum() {
@@ -545,6 +570,76 @@ const app = {
         alert(`✅ 匯入完成！新增 ${r.added}、更新 ${r.updated}、移除 ${r.removed}`); $('csv-file').value = '';
       } catch (e) { alert('❌ 匯入失敗，名單沒有被修改：\n' + e.message); }
     }, error: e => alert('CSV 讀取失敗：' + e.message) });
+  },
+  // ----- 匯入歷史點名（橫向表） -----
+  hiIso(y, m, d) { const t = new Date(Date.UTC(y, m - 1, d)); return (t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d) ? t.toISOString().slice(0, 10) : ''; },
+  hiDate(h, y) {
+    h = String(h == null ? '' : h).trim(); let m;
+    if ((m = h.match(/(?:^|[^\d])(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/))) return this.hiIso(+m[1], +m[2], +m[3]);
+    if ((m = h.match(/(?:^|[^\d])(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?!\d)/))) { const mo = +m[2], yr = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : (mo >= 9 ? y : y + 1); return this.hiIso(yr, mo, +m[1]); }
+    return '';
+  },
+  hiLoad() {
+    const f = $('hi-file').files[0]; this.s.hi = null; $('hi-opts').classList.add('hidden'); $('hi-result').innerHTML = '';
+    if (!f) return;
+    const y = Number($('hi-year').value) || new Date().getFullYear();
+    Papa.parse(f, { skipEmptyLines: true, encoding: 'UTF-8', complete: res => {
+      const rows = res.data, hr = rows.findIndex(r => r.some(c => this.hiDate(c, y)));
+      if (hr < 0) return alert('找不到日期欄（例如 14/9、21/9），請檢查表頭');
+      const head = rows[hr].map(c => String(c == null ? '' : c).trim());
+      const noCol = Math.max(head.findIndex(c => /^no\.?$/i.test(c)), 0), nameCol = head.findIndex(c => c.indexOf('中文') >= 0);
+      const dates = []; head.forEach((c, col) => { const iso = this.hiDate(c, y); if (iso) dates.push({ col, label: c, iso }); });
+      const data = rows.slice(hr + 1).filter(r => /^\d{1,3}$/.test(String(r[noCol] == null ? '' : r[noCol]).trim()));
+      if (!data.length) return alert('找不到學生資料行（「No.」欄需為數字）');
+      const codes = {}; data.forEach(r => dates.forEach(d => { const v = String(r[d.col] == null ? '' : r[d.col]).trim(); if (v) codes[v] = 1; }));
+      this.s.hi = { data, noCol, nameCol, dates, codes: Object.keys(codes).sort() };
+      $('hi-dates').innerHTML = dates.map(d => `<label class="flex items-center gap-1 px-2 py-2 border rounded text-sm bg-white"><input type="checkbox" class="w-4 h-4" id="hid-${d.col}" checked>${esc(d.label)}</label>`).join('') + `<div class="w-full text-xs text-gray-500">共識別 ${dates.length} 個日期欄。未識別為日期的欄：${esc(head.filter((c, col) => c && !dates.some(d => d.col === col)).join('、')) || '無'}（如其中有上課日期，請把表頭改為「日/月」，例如 12/10）</div>`;
+      const OPT = ['缺席', '出席', '出席 (冇帶衫)', '出席 (受傷)', '出席 (見社工)', '比賽', '其他: 因傷病沒上堂', '其他: 病假', '__skip'];
+      const DEF = { '0': '缺席', '1': '出席', '2': '出席 (冇帶衫)', '3': '出席 (受傷)' };
+      $('hi-map').innerHTML = this.s.hi.codes.map((c, k) => `<div><label class="lbl">代碼 ${esc(c)} ＝</label><select class="inp" id="him-${k}">${OPT.map(o => `<option value="${esc(o)}" ${(DEF[c] || '__skip') === o ? 'selected' : ''}>${o === '__skip' ? '略過（不匯入）' : esc(o)}</option>`).join('')}</select></div>`).join('');
+      $('hi-opts').classList.remove('hidden');
+    }, error: e => alert('CSV 讀取失敗：' + e.message) });
+  },
+  hiBuild() {
+    const hi = this.s.hi, cls = $('hi-class').value;
+    if (!hi) { alert('請先選擇 CSV 檔案'); return null; }
+    if (!cls) { alert('請選擇班別'); return null; }
+    const dates = hi.dates.filter(d => $('hid-' + d.col).checked);
+    if (!dates.length) { alert('請至少剔選一個日期'); return null; }
+    const map = {}; hi.codes.forEach((c, k) => map[c] = $('him-' + k).value);
+    const blank = $('hi-blank').value, rows = [];
+    hi.data.forEach(r => {
+      const no = String(r[hi.noCol]).trim(), nm = hi.nameCol >= 0 ? String(r[hi.nameCol] == null ? '' : r[hi.nameCol]).trim() : '';
+      dates.forEach(d => {
+        const v = String(r[d.col] == null ? '' : r[d.col]).trim(), st = v ? map[v] : (blank === 'present' ? '出席' : '__skip');
+        if (!st || st === '__skip') return;
+        rows.push({ Class: cls, StudentNo: no.length < 2 ? no.padStart(2, '0') : no, ChiName: nm, Date: d.iso, Status: st });
+      });
+    });
+    if (!rows.length) { alert('沒有可匯入的資料'); return null; }
+    return rows;
+  },
+  async hiPreview() {
+    const rows = this.hiBuild(); if (!rows) return;
+    try {
+      const p = await this.api('previewHistory', { rows, overwrite: $('hi-over').value === 'over' });
+      const list = (a, n) => a.length ? `<div class="text-xs text-gray-600">${esc(a.join('、'))}${n > a.length ? '…' : ''}</div>` : '';
+      $('hi-result').innerHTML = `<div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-sm space-y-1">
+        <div>共 ${p.total} 筆：<b>新增 ${p.add}</b>、<b>覆蓋 ${p.update}</b>、已有紀錄略過 ${p.skipExist}、格式錯誤或重複 ${p.bad}</div>
+        <div>涵蓋 ${new Set(rows.map(r => r.Date)).size} 個日期：${esc([...new Set(rows.map(r => r.Date))].map(x => x.slice(5)).join('、'))}</div>
+        <div>將寫入的狀態：${Object.keys(p.byStatus).map(k => esc(k) + ' ' + p.byStatus[k]).join('；') || '無'}</div>
+        ${p.notFoundCount ? `<div class="text-red-700">找不到學生 ${p.notFoundCount} 位（不會匯入，請先匯入名單或檢查班別／學號）：</div>${list(p.notFound, p.notFoundCount)}` : ''}
+        ${p.mismatchCount ? `<div class="text-red-700">姓名不符 ${p.mismatchCount} 位（不會匯入，請檢查學號是否對應正確）：</div>${list(p.mismatch, p.mismatchCount)}` : ''}
+        <button class="btn bg-green-600 mt-2" ${p.add + p.update ? '' : 'disabled'} onclick="app.hiImport()">確認匯入 ${p.add + p.update} 筆</button></div>`;
+    } catch (e) { alert('錯誤：' + e.message); }
+  },
+  async hiImport() {
+    const rows = this.hiBuild(); if (!rows) return;
+    if (!confirm('確定匯入歷史點名紀錄？（可安全重複上載：已有紀錄預設會略過）')) return;
+    try {
+      const r = await this.api('importHistory', { rows, overwrite: $('hi-over').value === 'over', confirm: true });
+      alert(`✅ 匯入完成：新增 ${r.added}、覆蓋 ${r.updated}、略過 ${r.skipped}`); $('hi-result').innerHTML = '';
+    } catch (e) { alert('❌ 匯入失敗，沒有寫入任何資料：\n' + e.message); }
   },
   abilityTemplate() { this.download('FRCSS_PE_Ability_Template.csv', '班別,學號,可否上堂,PE備註\n1A,02,can_play,哮喘（有備註但可上堂＝黃色）\n1A,05,cannot_play,腳傷（免上堂＝紅色）\n1A,08,,'); },
   importAbility() {
