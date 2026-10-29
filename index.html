@@ -201,7 +201,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.5.2'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.5.4'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -271,7 +271,7 @@ const app = {
     const cls = $('att-class').value, date = $('att-date').value;
     if (!cls || !date) return alert('請填寫日期及選擇班別！');
     try {
-      const r = await this.api('getStudents', { classCode: cls, date });
+      const r = await this.api('getStudents', { classCode: cls, date, fresh: btn === true });
       if (!r.students.length) { this.clear(); return alert('找不到 ' + cls + ' 班的學生紀錄。'); }
       r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
       this.s.students = r.students; this.s.att = {}; this.s.origNorm = {};
@@ -675,6 +675,7 @@ const app = {
     catch (e) { alert('❌ ' + e.message); }
   }
 };
+fetch(API_URL, { mode: 'no-cors' }).catch(() => {}); // 開頁即叫醒後端，輸入密碼期間完成冷啟動
 app.init();
 </script>
 </body>
