@@ -61,6 +61,7 @@
   </nav>
 
   <div id="offline-bar" class="hidden bg-gray-800 text-white text-center p-2 text-sm">📡 目前離線：無法登入或提交紀錄，連線後會自動恢復</div>
+  <div id="student-cache-status" class="hidden bg-slate-50 text-slate-600 text-center px-2 py-1 text-xs"></div>
   <div id="ver-warn" class="hidden bg-red-600 text-white text-center p-2 text-sm"></div>
   <main class="flex-grow p-3 md:p-8 w-full max-w-6xl mx-auto">
     <!-- 點名 -->
@@ -233,7 +234,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.7.0'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.8.0'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -241,8 +242,68 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const app = {
-  s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false },
+  s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false },
+  dbPromise: null, studentSyncing: false,
 
+  // ----- IndexedDB：全校學生名單本機快取 -----
+  db() {
+    if (!('indexedDB' in window)) return Promise.reject(new Error('此瀏覽器不支援 IndexedDB'));
+    if (!this.dbPromise) this.dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open('frcss-pe-students', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('students')) db.createObjectStore('students', { keyPath: 'StudentID' });
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+      };
+      req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error || new Error('無法開啟本機資料庫'));
+    });
+    return this.dbPromise;
+  },
+  async dbMeta(key) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => { const tx = db.transaction('meta', 'readonly'), r = tx.objectStore('meta').get(key); r.onsuccess = () => resolve(r.result ? r.result.value : null); r.onerror = () => reject(r.error); });
+  },
+  async dbSaveStudents(students, version) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['students', 'meta'], 'readwrite'), store = tx.objectStore('students');
+      store.clear(); students.forEach(x => store.put(x));
+      tx.objectStore('meta').put({ key: 'version', value: String(version) });
+      tx.objectStore('meta').put({ key: 'syncedAt', value: Date.now() });
+      tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error('儲存本機名單失敗'));
+    });
+  },
+  async dbGetClass(cls) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('students', 'readonly'), req = tx.objectStore('students').getAll();
+      req.onsuccess = () => resolve((req.result || []).filter(x => String(x.Class).toUpperCase() === String(cls).toUpperCase()));
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async dbPutStudent(student) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => { const tx = db.transaction('students', 'readwrite'); tx.objectStore('students').put(student); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+  },
+  cacheStatus(msg, show) { const el = $('student-cache-status'); if (!el) return; el.textContent = msg || ''; el.classList.toggle('hidden', !show); },
+  async syncStudentCache(force) {
+    if (!this.s.token || this.studentSyncing || !navigator.onLine) return;
+    this.studentSyncing = true; this.cacheStatus('學生名單同步中…', true);
+    try {
+      const v = await this.api('getStudentDataVersion', {}, { silent: true });
+      const localVersion = await this.dbMeta('version');
+      if (!force && localVersion !== null && String(localVersion) === String(v.version)) {
+        const at = await this.dbMeta('syncedAt');
+        this.cacheStatus('✓ 本機學生名單已是最新版本｜' + (at ? new Date(at).toLocaleString('zh-HK') : '已同步'), true);
+        return;
+      }
+      const pack = await this.api('getAllStudents', {}, { silent: true });
+      await this.dbSaveStudents(pack.students || [], pack.version || v.version);
+      const count = (pack.students || []).length; console.log('[CACHE] 學生名單已同步：', count, '人；版本', pack.version || v.version);
+      this.cacheStatus('✓ 學生名單已同步：' + count + ' 人｜' + new Date().toLocaleString('zh-HK'), true);
+    } catch (e) { console.warn('[CACHE] 學生名單背景同步失敗：', e.message); this.cacheStatus('⚠ 學生名單背景同步未完成；將於下次連線時重試', true); }
+    finally { this.studentSyncing = false; }
+  },
   init() {
     const opts = (first) => (first ? `<option value="">${first}</option>` : '') + CLASSES.map(c => `<option>${c}</option>`).join('');
     $('att-class').innerHTML = opts('選擇班別'); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts(''); $('hi-class').innerHTML = opts('選擇班別');
@@ -264,6 +325,7 @@ const app = {
     if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
     $('nav-students').classList.toggle('hidden', u.role !== 'admin');
     $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
+    this.syncStudentCache(false); // 不阻礙登入及前台操作，背景檢查學生名單版本
   },
   async login() {
     const pwd = $('pwd').value;
@@ -324,17 +386,48 @@ const app = {
     if (btn && this.s.dirty && !confirm('目前有未提交的修改，重新載入會遺失。確定？')) return;
     const cls = $('att-class').value, date = $('att-date').value;
     if (!cls || !date) return alert('請填寫日期及選擇班別！');
+    const cacheKey = cls + '|' + date; this.s.loadingKey = cacheKey; this.s.attendanceReady = false; $('submit-btn').disabled = true;
+    let local = [];
+    if (btn !== true) {
+      try { local = await this.dbGetClass(cls); } catch (e) { console.warn('[CACHE] 讀取本機名單失敗：', e.message); }
+    }
+    // 有本機名單時先即時顯示；點名紀錄仍須由伺服器核實後才可提交
+    if (local.length) {
+      this.prepareAttendance(local, {}, cls, date);
+      this.s.attendanceReady = false; this.s.loadingKey = cacheKey;
+      $('att-note').classList.remove('hidden'); $('att-note').textContent = '⚡ 已即時載入本機學生名單，正在背景同步本堂點名紀錄…';
+      $('att-list').classList.add('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = true;
+    }
     try {
-      const r = await this.api('getStudents', { classCode: cls, date, fresh: btn === true });
+      const r = await this.api('getStudents', { classCode: cls, date, fresh: btn === true }, { silent: !!local.length });
+      if (this.s.loadingKey && this.s.loadingKey !== cacheKey) return;
       if (!r.students.length) { this.clear(); return alert('找不到 ' + cls + ' 班的學生紀錄。'); }
       r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
-      this.s.students = r.students; this.s.att = {}; this.s.origNorm = {}; this.s.raw = Object.assign({}, r.saved); // raw＝後端原始狀態，提交時用作衝突比對
-      let n = 0;
-      r.students.forEach(s => { if (r.saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(r.saved[s.StudentID]); this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]); n++; } else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' }; });
-      const note = $('att-note'); note.classList.toggle('hidden', !n);
-      note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
-      $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false; this.render(); ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
-    } catch (e) { this.clear(); alert('錯誤：' + e.message); }
+      this.prepareAttendance(r.students, r.saved || {}, cls, date);
+      this.s.attendanceReady = true; this.s.loadingKey = null;
+      $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false;
+      // 本機快取可能因管理員剛更新名單而過時，背景同步會以全校正式名單作原子替換
+      r.students.forEach(st => this.dbPutStudent(st).catch(() => {}));
+    } catch (e) {
+      if (!local.length) { this.clear(); alert('錯誤：' + e.message); }
+      else {
+        this.s.attendanceReady = false; $('att-list').classList.remove('pointer-events-none', 'opacity-60');
+        $('att-note').classList.remove('hidden'); $('att-note').textContent = '⚠️ 本機學生名單已載入，但未能取得最新點名紀錄；為避免重複或覆蓋紀錄，暫時不能提交。連線恢復後請重新載入。';
+        $('submit-btn').disabled = true;
+      }
+    }
+  },
+  prepareAttendance(students, saved, cls, date) {
+    this.s.students = students.slice().sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
+    this.s.att = {}; this.s.origNorm = {}; this.s.raw = Object.assign({}, saved || {});
+    this.s.students.forEach(s => {
+      if (saved && saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(saved[s.StudentID]); this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]); }
+      else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' };
+    });
+    const n = Object.keys(saved || {}).length, note = $('att-note');
+    note.classList.toggle('hidden', !n); note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
+    $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false; this.render();
+    ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
   },
   render() { if (this.vw === 'grid') this.renderGrid(); else this.renderList(); this.bar(); },
   bar() {
@@ -435,7 +528,7 @@ const app = {
   dates(i, t) { const s = this.s.students[i]; alert(s.ChiName + (t === 'abs' ? ' 缺席紀錄：\n' + s.absDates : ' 冇帶衫紀錄：\n' + s.noUniformDates)); },
   async togAbility(i) {
     const s = this.s.students[i], ab = s.PEAbility === 'cannot_play' ? 'can_play' : 'cannot_play';
-    try { await this.api('setAbility', { studentId: s.StudentID, ability: ab }, { silent: true }); s.PEAbility = ab; this.render(); } catch (e) { alert('錯誤：' + e.message); }
+    try { await this.api('setAbility', { studentId: s.StudentID, ability: ab }, { silent: true }); s.PEAbility = ab; this.dbPutStudent(s).catch(() => {}); this.syncStudentCache(true); this.render(); } catch (e) { alert('錯誤：' + e.message); }
   },
   stats(shown) {
     shown = shown || this.s.students;
@@ -459,6 +552,7 @@ const app = {
   // 確認點名：只提交「目前顯示的性別」的學生；後端會再次核實性別及比對載入時的狀態（Orig）
   async submit() {
     if (this.s.busy) return;
+    if (!this.s.attendanceReady) return alert('仍未取得最新點名紀錄，請待同步完成後再提交。');
     const cls = $('att-class').value, date = $('att-date').value, g = $('att-gender').value, L0 = this.s.loaded;
     const label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學', upd = this.hasSaved();
     const shown = this.s.students.filter(s => g === 'all' || this.gOf(s) === g);
@@ -508,7 +602,7 @@ const app = {
     if (L && (L.cls !== cls || L.date !== date) && this.s.dirty && !confirm('目前有未提交的修改，切換後會遺失。確定切換？')) { $('att-class').value = L.cls; $('att-date').value = L.date; return; }
     if (cls && date) this.loadList(); else this.clear();
   },
-  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.raw = {}; this.s.loaded = null; this.s.dirty = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet(); this.bar(); },
+  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.raw = {}; this.s.loaded = null; this.s.dirty = false; this.s.attendanceReady = false; this.s.loadingKey = null; $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet(); this.bar(); },
   gOf(s) { const v = String(s.Gender || '').trim().toUpperCase(); return (v === 'M' || v === '男' || v === 'MALE') ? 'M' : (v === 'F' || v === '女' || v === 'FEMALE') ? 'F' : ''; },
   houseLbl(h) { h = String(h || '').trim(); return !h ? '' : (h.slice(-1) === '社' ? h : h + '社'); },
   houseCls(h) { return ({ '紅': 'bg-red-100 text-red-700', '藍': 'bg-blue-100 text-blue-700', '黃': 'bg-yellow-100 text-yellow-700', '綠': 'bg-green-100 text-green-700' })[String(h).trim()[0]] || 'bg-gray-100 text-gray-700'; },
@@ -746,7 +840,7 @@ const app = {
         msg += '\n名單內學生的 PE 備註以 CSV 為準。確定執行？';
         if (!confirm(msg)) return;
         const r = await this.api('importAbility', { rows, confirm: true });
-        alert(`✅ 已更新 ${r.updated} 名學生`); $('ab-file').value = '';
+        alert(`✅ 已更新 ${r.updated} 名學生`); $('ab-file').value = ''; this.syncStudentCache(true);
       } catch (e) { alert('❌ 上載失敗，沒有修改任何資料：\n' + e.message); }
     }, error: e => alert('CSV 讀取失敗：' + e.message) });
   },
@@ -768,7 +862,7 @@ const app = {
       await this.api('deleteStudent', { studentId: id });
       const k = this.s.students.findIndex(s => s.StudentID === id); // 點名頁若正顯示該學生，同步移除
       if (k >= 0) { this.s.students.splice(k, 1); delete this.s.att[id]; delete (this.s.origNorm || {})[id]; delete (this.s.raw || {})[id]; if (this.s.students.length) this.render(); else this.clear(); }
-      alert('✅ 已刪除：' + name); this.loadDel();
+      alert('✅ 已刪除：' + name); this.syncStudentCache(true); this.loadDel();
     } catch (e) { alert('❌ 刪除失敗：\n' + e.message); }
   },
   // 下載點名紀錄（先輸入日期範圍；只限管理員，後端另有驗證）
@@ -801,7 +895,7 @@ app.init(); app.resume();
 (function () {
   const bar = document.getElementById('offline-bar');
   const upd = () => { if (bar) bar.classList.toggle('hidden', navigator.onLine); };
-  window.addEventListener('online', upd); window.addEventListener('offline', upd); upd();
+  window.addEventListener('online', () => { upd(); if (window.app) app.syncStudentCache(false); }); window.addEventListener('offline', upd); document.addEventListener('visibilitychange', () => { if (!document.hidden && window.app) app.syncStudentCache(false); }); setInterval(() => { if (window.app && !document.hidden) app.syncStudentCache(false); }, 10 * 60 * 1000); upd();
   if ('serviceWorker' in navigator) {
     const busy = () => window.app && (app.s.dirty || app.s.busy);
     window.addEventListener('load', () => {
