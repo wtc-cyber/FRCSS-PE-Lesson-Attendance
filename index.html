@@ -2,8 +2,17 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FRCSS PE 點名系統</title>
+<meta name="theme-color" content="#1e40af">
+<meta name="description" content="FRCSS PE 點名系統">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PE 點名">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style type="text/tailwindcss">
@@ -30,9 +39,7 @@
     <h1 class="text-2xl font-bold mb-2 text-blue-800">FRCSS PE 點名系統</h1>
     <p class="text-sm text-gray-500 mb-4">請輸入系統密碼</p>
     <input id="op-name" class="inp mb-3" maxlength="20" placeholder="操作人姓名（選填，會記入紀錄）">
-    <input type="password" id="pwd" class="inp mb-2 text-lg" placeholder="系統密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')app.login()">
-    <label class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-1"><input type="checkbox" id="remember" class="w-4 h-4"> 記住此瀏覽器（30 日內免再輸入密碼）</label>
-    <p class="text-xs text-gray-400 mb-4">不剔選：今日內免再輸入；按「登出」會即時作廢登入</p>
+    <input type="password" id="pwd" class="inp mb-4 text-lg" placeholder="系統密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')app.login()">
     <button class="btn bg-blue-600 w-full text-lg" onclick="app.login()">登入</button>
     <p id="login-msg" class="text-red-600 text-sm mt-4"></p>
   </div>
@@ -51,6 +58,7 @@
     </div>
   </nav>
 
+  <div id="offline-bar" class="hidden bg-gray-800 text-white text-center p-2 text-sm">📡 目前離線：無法登入或提交紀錄，連線後會自動恢復</div>
   <div id="ver-warn" class="hidden bg-red-600 text-white text-center p-2 text-sm"></div>
   <main class="flex-grow p-3 md:p-8 w-full max-w-6xl mx-auto">
     <!-- 點名 -->
@@ -130,15 +138,6 @@
           <button class="btn bg-blue-600" onclick="app.hiPreview()">預覽</button>
         </div>
         <div id="hi-result"></div>
-      </div>
-      <div class="card border border-red-200">
-        <h3 class="font-bold text-red-700 mb-2">刪除指定學生</h3>
-        <p class="text-sm text-gray-600 mb-3">只會將學生從名單移除（先備份到「Deleted_Students」工作表）；已有的歷史點名紀錄會保留。</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
-          <div><label class="lbl">班別</label><select id="ds-class" class="inp" onchange="app.loadDel()"></select></div>
-          <div><label class="lbl">學生</label><select id="ds-stu" class="inp"></select></div>
-          <button class="btn bg-red-600" onclick="app.delStudent()">刪除</button>
-        </div>
       </div>
       <div class="card">
         <h3 class="font-bold mb-2">下載點名紀錄（按日期範圍）</h3>
@@ -223,7 +222,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.7.0'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.6.1'; // 須與 Code.gs 的 VERSION 一致
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -242,43 +241,25 @@ const app = {
     const t0 = new Date(), y0 = t0.getMonth() >= 8 ? t0.getFullYear() : t0.getFullYear() - 1;
     $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部'); this.colPanel();
     $('ex-class').innerHTML = opts('全部班別'); $('ex-from').value = y0 + '-09-01'; $('ex-to').value = this.today();
-    $('ds-class').innerHTML = opts('選擇班別');
     let v = null; try { v = localStorage.getItem('pe_view'); } catch (_) {}
     this.vw = (v === 'grid' || v === 'list') ? v : (window.innerWidth < 1024 ? 'grid' : 'list'); // 手機／平板預設格仔，電腦預設列表
   },
   today() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); },
 
-  enter(u) {
-    this.s.role = u.role; $('who').textContent = '（' + u.email + '）';
-    const vw = $('ver-warn');
-    if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
-    $('nav-students').classList.toggle('hidden', u.role !== 'admin');
-    $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
-  },
   async login() {
     const pwd = $('pwd').value;
     if (!pwd) { $('login-msg').textContent = '請輸入密碼'; return; }
-    this.s.op = $('op-name').value.trim().slice(0, 20); $('login-msg').textContent = '';
+    this.s.token = pwd; this.s.op = $('op-name').value.trim().slice(0, 20); $('login-msg').textContent = '';
     try {
-      const u = await this.api('login', { password: pwd, remember: $('remember').checked });
-      this.s.token = u.token;
-      try { localStorage.setItem('pe_tk', JSON.stringify({ token: u.token, exp: u.exp })); } catch (_) {} // 只存後端發出的憑證，不存密碼
-      this.enter(u);
+      const u = await this.api('whoami', {});
+      this.s.role = u.role; $('who').textContent = '（' + u.email + '）';
+      const vw = $('ver-warn');
+      if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
+      $('nav-students').classList.toggle('hidden', u.role !== 'admin');
+      $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
     } catch (e) { this.s.token = ''; $('login-msg').textContent = e.message; }
   },
-  async resume() { // 開頁時用已存的憑證自動登入
-    let tk = null; try { tk = JSON.parse(localStorage.getItem('pe_tk')); } catch (_) {}
-    if (!tk || !tk.token || tk.exp < Date.now()) { try { localStorage.removeItem('pe_tk'); } catch (_) {} return; }
-    this.s.token = tk.token; $('login').classList.add('hidden');
-    try { this.enter(await this.api('whoami', {}, { silent: true })); }
-    catch (e) {
-      this.s.token = ''; $('login').classList.remove('hidden'); $('login-msg').textContent = e.message;
-      if (/登入已過期|密碼錯誤/.test(e.message)) { try { localStorage.removeItem('pe_tk'); } catch (_) {} }
-    }
-  },
   logout(msg) {
-    if (this.s.token && !msg) this.api('logout', {}, { silent: true }).catch(() => {}); // 通知後端作廢憑證
-    try { localStorage.removeItem('pe_tk'); } catch (_) {}
     this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false };
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
@@ -291,14 +272,14 @@ const app = {
     if (!opt.silent) $('busy').classList.remove('hidden');
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 40000);
     try {
-      const res = await fetch(API_URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token: this.s.token || '', operator: this.s.op || '' }, payload)) });
+      const res = await fetch(API_URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, password: this.s.token, operator: this.s.op || '' }, payload)) });
       let r; try { r = await res.json(); } catch (_) { throw new Error('伺服器回應格式不正確，請確認部署網址及存取權設定'); }
       if (!r.success) throw new Error(r.error || '未知錯誤');
       console.log('[PERF]', action, '總耗時', Math.round(performance.now() - t0) + 'ms', r.perf ? ('｜GAS內部(ms)：' + JSON.stringify(r.perf)) : '');
       return r.data;
     } catch (e) {
       const m = e.name === 'AbortError' ? '連線逾時，資料可能未有儲存，請稍後重試並先檢查紀錄' : (e instanceof TypeError ? '網絡連線失敗，資料未有儲存，請檢查網絡後再試' : e.message);
-      if (/密碼錯誤|登入已過期/.test(m) && this.s.token) { this.logout('登入已過期或密碼已更改，請重新登入'); }
+      if (/密碼錯誤/.test(m) && this.s.token) { this.logout('密碼錯誤或已更改，請重新登入'); }
       throw new Error(m);
     } finally { clearTimeout(t); if (!opt.silent) $('busy').classList.add('hidden'); }
   },
@@ -740,27 +721,6 @@ const app = {
       } catch (e) { alert('❌ 上載失敗，沒有修改任何資料：\n' + e.message); }
     }, error: e => alert('CSV 讀取失敗：' + e.message) });
   },
-  // 刪除指定學生（管理員）
-  async loadDel() {
-    const sel = $('ds-stu'), cls = $('ds-class').value; sel.innerHTML = '';
-    if (!cls) return;
-    try {
-      const r = await this.api('getStudents', { classCode: cls, date: this.today() }, { silent: true });
-      r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
-      sel.innerHTML = r.students.map(s => `<option value="${esc(s.StudentID)}">${esc(s.StudentNo)} ${esc(s.ChiName)}</option>`).join('');
-    } catch (e) { alert('錯誤：' + e.message); }
-  },
-  async delStudent() {
-    const id = $('ds-stu').value; if (!id) return alert('請先選擇班別及學生');
-    const name = $('ds-stu').selectedOptions[0].textContent, cls = $('ds-class').value;
-    if (!confirm(`⚠️ 刪除學生【${name}】（${cls}）？\n只會從名單移除，已有的歷史點名紀錄會保留。\n刪除前會備份到「Deleted_Students」工作表。`)) return;
-    try {
-      await this.api('deleteStudent', { studentId: id });
-      const k = this.s.students.findIndex(s => s.StudentID === id); // 點名頁若正顯示該學生，同步移除
-      if (k >= 0) { this.s.students.splice(k, 1); delete this.s.att[id]; delete (this.s.origNorm || {})[id]; delete (this.s.raw || {})[id]; if (this.s.students.length) this.render(); else this.clear(); }
-      alert('✅ 已刪除：' + name); this.loadDel();
-    } catch (e) { alert('❌ 刪除失敗：\n' + e.message); }
-  },
   // 下載點名紀錄（先輸入日期範圍；只限管理員，後端另有驗證）
   async exportYear() {
     const from = $('ex-from').value, to = $('ex-to').value;
@@ -785,7 +745,29 @@ const app = {
 // 未提交的修改或上傳進行中離開頁面時，瀏覽器會先提示
 window.addEventListener('beforeunload', e => { if (app.s.dirty || app.s.busy) { e.preventDefault(); e.returnValue = ''; } });
 fetch(API_URL, { mode: 'no-cors' }).catch(() => {}); // 開頁即叫醒後端，輸入密碼期間完成冷啟動
-app.init(); app.resume();
+app.init();
+
+// ===== PWA：註冊 Service Worker、離線提示 =====
+(function () {
+  const bar = document.getElementById('offline-bar');
+  const upd = () => { if (bar) bar.classList.toggle('hidden', navigator.onLine); };
+  window.addEventListener('online', upd); window.addEventListener('offline', upd); upd();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const w = reg.installing;
+          if (w) w.addEventListener('statechange', () => {
+            // 有新版本安裝完成：下次開啟時生效；若沒有未提交資料則直接重新載入
+            if (w.state === 'installed' && navigator.serviceWorker.controller && !(window.app && (app.s.dirty || app.s.busy))) { w.postMessage('SKIP_WAITING'); }
+          });
+        });
+      }).catch(() => {});
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloaded) return; reloaded = true; if (!(window.app && (app.s.dirty || app.s.busy))) location.reload(); });
+    });
+  }
+})();
 </script>
 </body>
 </html>
