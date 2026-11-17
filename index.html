@@ -92,7 +92,7 @@
         <div><label class="lbl">日期</label><input type="date" id="att-date" class="inp" onchange="app.onSel()"></div>
         <div><label class="lbl">班別</label><select id="att-class" class="inp" onchange="app.onSel()"></select></div>
         <div><label class="lbl">顯示</label>
-          <select id="att-gender" class="inp" onchange="app.render()"><option value="all">全班</option><option value="M">男同學</option><option value="F">女同學</option></select></div>
+          <select id="att-gender" class="inp" onchange="app.setG(this.value)"><option value="all">全班</option><option value="M">男同學</option><option value="F">女同學</option></select></div>
         <div class="col-span-2 md:col-span-2"><button class="btn bg-blue-600 w-full text-lg" onclick="app.loadList(true)">重新載入</button></div>
       </div>
       <div id="upd-banner" class="hidden mb-3 p-2 bg-orange-100 border border-orange-400 rounded text-sm text-orange-900 flex flex-wrap items-center gap-2" role="status">
@@ -563,7 +563,7 @@ const app = {
     });
     const n = Object.keys(saved || {}).length, note = $('att-note');
     note.classList.toggle('hidden', !n); note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
-    $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false;
+    $('att-gender').value = this.lastG(); this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false;
     const nd = this.applyDraft(cls, date); if (nd) { this.s.dirty = true; if (!this.s.loadingKey) this.toast('已還原你未提交的 ' + nd + ' 項修改（草稿）', 'warn', 4200); }
     this.render();
     ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
@@ -578,7 +578,12 @@ const app = {
     ['all', 'M', 'F'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('gb-' + k).classList.toggle(c, g === k)));
     ['grid', 'list'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
   },
-  setG(k) { $('att-gender').value = k; this.render(); },
+  setG(k) { $('att-gender').value = k; try { localStorage.setItem('pe_gender', k); } catch (_) {} this.render(); },
+  lastG() { // 還原上次揀嘅 全班／男／女；若本班沒有該性別學生就用全班，避免空畫面
+    let g = 'all'; try { g = localStorage.getItem('pe_gender') || 'all'; } catch (_) {}
+    if (g !== 'M' && g !== 'F') return 'all';
+    return this.s.students.some(x => this.gOf(x) === g) ? g : 'all';
+  },
   setView(v) { this.vw = v; try { localStorage.setItem('pe_view', v); } catch (_) {} this.render(); },
   setDate(v) { if (!v) return; $('att-date').value = v; this.onSel(); this.bar(); }, // 預設今日，可隨時改日期；已有紀錄會自動載入
   openFilter() { this.s.filterOpen = true; this.bar(); window.scrollTo(0, 0); },
