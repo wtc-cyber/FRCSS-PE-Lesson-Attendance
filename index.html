@@ -28,10 +28,29 @@
     body { -webkit-tap-highlight-color: transparent; }
   }
   .loader { border-top-color:#3498db; animation: sp 1.2s linear infinite; }
+  /* UX：按下回饋、iPhone/iPad 全屏 PWA 安全區域、Toast */
+  button { transition: transform .08s ease, opacity .15s; }
+  button:active:not(:disabled) { transform: scale(.96); }
+  #main > nav { padding-top: calc(.75rem + env(safe-area-inset-top, 0px)); }
+  #login, #splash { padding-top: env(safe-area-inset-top, 0px); }
+  #att-bar { top: env(safe-area-inset-top, 0px); }
+  #att-submit { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #toast { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); transition: opacity .2s, transform .2s; }
+  #toast.hide { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } .animate-pulse { animation: none; } }
   @keyframes sp { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
+
+<!-- 自動登入中（有已存憑證時顯示，避免整頁空白） -->
+<div id="splash" class="hidden min-h-screen flex items-center justify-center p-4">
+  <div class="text-center">
+    <h1 class="text-2xl font-bold mb-1 text-blue-800">FRCSS PE 點名系統</h1>
+    <p class="text-sm text-gray-500 mb-6">正在登入系統…</p>
+    <div class="loader rounded-full border-4 border-gray-200 h-10 w-10 mx-auto"></div>
+  </div>
+</div>
 
 <!-- 登入 -->
 <div id="login" class="min-h-screen flex items-center justify-center p-4">
@@ -44,6 +63,7 @@
     <p class="text-xs text-gray-400 mb-4">不剔選：今日內免再輸入；按「登出」會即時作廢登入</p>
     <button class="btn bg-blue-600 w-full text-lg" onclick="app.login()">登入</button>
     <p id="login-msg" class="text-red-600 text-sm mt-4"></p>
+    <p class="text-[10px] text-gray-300 mt-4" id="ui-build"></p>
   </div>
 </div>
 
@@ -52,16 +72,17 @@
   <nav class="bg-blue-800 text-white p-3 shadow-md flex flex-wrap justify-between items-center gap-2">
     <div class="font-bold text-xl">FRCSS PE <span id="who" class="text-xs font-normal opacity-80"></span></div>
     <div class="flex gap-2 text-sm md:text-base">
-      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
-      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
-      <button class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
-      <button id="nav-students" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
+      <button data-nav="attendance" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
+      <button data-nav="history" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
+      <button data-nav="summary" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
+      <button id="nav-students" data-nav="students" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
       <button class="px-3 py-2 rounded bg-red-700" onclick="app.logout()">登出</button>
     </div>
   </nav>
 
   <div id="offline-bar" class="hidden bg-gray-800 text-white text-center p-2 text-sm">📡 目前離線：無法登入或提交紀錄，連線後會自動恢復</div>
   <div id="student-cache-status" class="hidden bg-slate-50 text-slate-600 text-center px-2 py-1 text-xs"></div>
+  <div id="bg-status" class="hidden bg-indigo-50 text-indigo-700 text-center px-2 py-1 text-xs"></div>
   <div id="ver-warn" class="hidden bg-red-600 text-white text-center p-2 text-sm"></div>
   <main class="flex-grow p-3 md:p-8 w-full max-w-6xl mx-auto">
     <!-- 點名 -->
@@ -73,6 +94,10 @@
         <div><label class="lbl">顯示</label>
           <select id="att-gender" class="inp" onchange="app.render()"><option value="all">全班</option><option value="M">男同學</option><option value="F">女同學</option></select></div>
         <div class="col-span-2 md:col-span-2"><button class="btn bg-blue-600 w-full text-lg" onclick="app.loadList(true)">重新載入</button></div>
+      </div>
+      <div id="upd-banner" class="hidden mb-3 p-2 bg-orange-100 border border-orange-400 rounded text-sm text-orange-900 flex flex-wrap items-center gap-2" role="status">
+        <span id="upd-text" class="flex-1">🔔 偵測到點名紀錄有更新</span>
+        <button class="px-3 py-2 rounded bg-orange-600 text-white font-bold text-sm min-h-[40px]" onclick="app.loadList('soft')">重新載入</button>
       </div>
       <div id="att-note" class="hidden mb-3 p-2 bg-amber-50 border border-amber-300 rounded text-sm text-amber-800"></div>
       <div id="att-bar" class="hidden sticky top-0 z-20 bg-gray-100 pb-1">
@@ -227,6 +252,9 @@
   <div id="sheet-body" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4 shadow-2xl max-h-[85vh] overflow-y-auto"></div>
 </div>
 
+<!-- Toast（輕量提示，不打斷操作） -->
+<div id="toast" class="hide fixed left-1/2 z-[60] -translate-x-1/2 max-w-[92vw] px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white bg-gray-800" role="status" aria-live="polite"></div>
+
 <!-- 載入中 -->
 <div id="busy" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50">
   <div class="bg-white p-8 rounded-xl text-center"><div class="loader rounded-full border-4 border-gray-200 h-12 w-12 mb-3 mx-auto"></div><div class="font-bold">與伺服器同步中…</div></div>
@@ -234,7 +262,11 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.8.0'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.8.0'; // 須與 Code.gs 的 VERSION 一致（只改前端 UX 時請勿改這個）
+const UI_BUILD = 'ux1'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
+const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
+const DRAFT_KEY = 'pe_draft_v1';        // 未提交草稿 localStorage key
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
 const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['total', '總節數'], ['present', '出席'], ['abs', '缺席'], ['uni', '冇帶衫'], ['inj', '受傷'], ['sw', '見社工'], ['comp', '比賽'], ['oth', '其他'], ['rate', '缺席率'], ['prate', '出席率']];
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
@@ -244,6 +276,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const app = {
   s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false },
   dbPromise: null, studentSyncing: false,
+  dayCache: {}, bgChecking: false, toastTimer: null, draftTimer: null,
 
   // ----- IndexedDB：全校學生名單本機快取 -----
   db() {
@@ -314,6 +347,7 @@ const app = {
     $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部'); this.colPanel();
     $('ex-class').innerHTML = opts('全部班別'); $('ex-from').value = y0 + '-09-01'; $('ex-to').value = this.today();
     $('ds-class').innerHTML = opts('選擇班別');
+    $('ui-build').textContent = 'v' + APP_VERSION + ' · ' + UI_BUILD;
     let v = null; try { v = localStorage.getItem('pe_view'); } catch (_) {}
     this.vw = (v === 'grid' || v === 'list') ? v : (window.innerWidth < 1024 ? 'grid' : 'list'); // 手機／平板預設格仔，電腦預設列表
   },
@@ -326,6 +360,8 @@ const app = {
     $('nav-students').classList.toggle('hidden', u.role !== 'admin');
     $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
     this.syncStudentCache(false); // 不阻礙登入及前台操作，背景檢查學生名單版本
+    this.purgeDrafts();
+    setTimeout(() => this.prefetchToday(), 1500); // 登入後背景預載今日常用班別，不阻塞畫面
   },
   async login() {
     const pwd = $('pwd').value;
@@ -341,9 +377,10 @@ const app = {
   async resume() { // 開頁時用已存的憑證自動登入
     let tk = null; try { tk = JSON.parse(localStorage.getItem('pe_tk')); } catch (_) {}
     if (!tk || !tk.token || tk.exp < Date.now()) { try { localStorage.removeItem('pe_tk'); } catch (_) {} return; }
-    this.s.token = tk.token; $('login').classList.add('hidden');
-    try { this.enter(await this.api('whoami', {}, { silent: true })); }
+    this.s.token = tk.token; $('login').classList.add('hidden'); $('splash').classList.remove('hidden'); // 先顯示「正在登入」，不再整頁空白
+    try { const u = await this.api('whoami', {}, { silent: true, timeout: 15000 }); $('splash').classList.add('hidden'); this.enter(u); }
     catch (e) {
+      $('splash').classList.add('hidden');
       this.s.token = ''; $('login').classList.remove('hidden'); $('login-msg').textContent = e.message;
       if (/登入已過期|密碼錯誤/.test(e.message)) { try { localStorage.removeItem('pe_tk'); } catch (_) {} }
     }
@@ -351,17 +388,29 @@ const app = {
   logout(msg) {
     if (this.s.token && !msg) this.api('logout', {}, { silent: true }).catch(() => {}); // 通知後端作廢憑證
     try { localStorage.removeItem('pe_tk'); } catch (_) {}
-    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false };
+    this.persistDraft(); // 登出前先保留未提交草稿（只在當日有效）
+    this.dayCache = {}; $('upd-banner').classList.add('hidden'); $('bg-status').classList.add('hidden');
+    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false };
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
   },
-  nav(n) { ['attendance', 'students', 'history', 'summary'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n)); },
+  nav(n) {
+    ['attendance', 'students', 'history', 'summary'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
+    document.querySelectorAll('[data-nav]').forEach(b => { const on = b.dataset.nav === n; b.classList.toggle('!bg-white', on); b.classList.toggle('!text-blue-900', on); b.classList.toggle('font-bold', on); });
+  },
+  // ----- Toast -----
+  toast(msg, type, ms) {
+    const el = $('toast'); el.textContent = msg;
+    el.classList.remove('bg-gray-800', 'bg-green-600', 'bg-red-600', 'bg-amber-600');
+    el.classList.add(type === 'ok' ? 'bg-green-600' : type === 'err' ? 'bg-red-600' : type === 'warn' ? 'bg-amber-600' : 'bg-gray-800');
+    el.classList.remove('hide'); clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => el.classList.add('hide'), ms || 3200);
+  },
 
   // opt.silent＝不顯示全屏鎖定（背景上傳／輕量操作用）；每次呼叫都會在 Console 記錄耗時
   async api(action, payload, opt) {
     opt = opt || {}; const t0 = performance.now();
     if (!opt.silent) $('busy').classList.remove('hidden');
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 40000);
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), opt.timeout || 40000);
     try {
       const res = await fetch(API_URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token: this.s.token || '', operator: this.s.op || '' }, payload)) });
       let r; try { r = await res.json(); } catch (_) { throw new Error('伺服器回應格式不正確，請確認部署網址及存取權設定'); }
@@ -382,33 +431,54 @@ const app = {
     if (str === '缺席' || str === '比賽') return { p: str, mods: [], other: '' };
     return { p: '其他', mods: [], other: str.replace(/^其他[:：]?\s*/, '') };
   },
+  skeleton() { return '<div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5 animate-pulse">' + '<div class="rounded-lg bg-gray-200 min-h-[72px]"></div>'.repeat(24) + '</div><div class="text-center text-sm text-gray-500 mt-3">正在載入學生名單…</div>'; },
   async loadList(btn) {
-    if (btn && this.s.dirty && !confirm('目前有未提交的修改，重新載入會遺失。確定？')) return;
+    if (btn && this.s.dirty && !confirm('目前有未提交的修改，重新載入會放棄這些修改。確定？')) return;
     const cls = $('att-class').value, date = $('att-date').value;
     if (!cls || !date) return alert('請填寫日期及選擇班別！');
-    const cacheKey = cls + '|' + date; this.s.loadingKey = cacheKey; this.s.attendanceReady = false; $('submit-btn').disabled = true;
-    let local = [];
-    if (btn !== true) {
-      try { local = await this.dbGetClass(cls); } catch (e) { console.warn('[CACHE] 讀取本機名單失敗：', e.message); }
+    const soft = btn === 'soft', cacheKey = cls + '|' + date, T0 = performance.now(); let idbMs = 0, netMs = 0; const seq = this.loadSeq = (this.loadSeq || 0) + 1; // 只接受最新一次載入的回應
+    if (btn === true || soft) this.deleteDraft(cacheKey); // 手動重新載入＝放棄草稿
+    $('upd-banner').classList.add('hidden');
+
+    // 1) 同日同班 session 快取：即時顯示，背景再核對一次
+    const hit = (btn !== true && !soft) ? this.dayCache[cacheKey] : null;
+    if (hit && Date.now() - hit.t < DAY_CACHE_TTL) {
+      this.s.loadingKey = null; this.prepareAttendance(hit.students, hit.saved, cls, date);
+      this.s.attendanceReady = true; $('submit-btn').disabled = false; $('att-list').classList.remove('pointer-events-none', 'opacity-60');
+      console.log('[PERF] loadList cache:hit', Math.round(performance.now() - T0) + 'ms'); this.recordRecent(cls);
+      setTimeout(() => this.bgCheck(), 300); return;
     }
-    // 有本機名單時先即時顯示；點名紀錄仍須由伺服器核實後才可提交
+
+    // 2) 本機 IndexedDB 名單
+    let local = [];
+    if (btn !== true) { const t1 = performance.now(); try { local = await this.dbGetClass(cls); } catch (e) { console.warn('[CACHE] 讀取本機名單失敗：', e.message); } idbMs = Math.round(performance.now() - t1); }
+    if (seq !== this.loadSeq) return;
+    this.s.attendanceReady = false; $('submit-btn').disabled = true;
     if (local.length) {
-      this.prepareAttendance(local, {}, cls, date);
+      this.s.loadingKey = cacheKey; this.prepareAttendance(local, {}, cls, date);
       this.s.attendanceReady = false; this.s.loadingKey = cacheKey;
       $('att-note').classList.remove('hidden'); $('att-note').textContent = '⚡ 已即時載入本機學生名單，正在背景同步本堂點名紀錄…';
-      $('att-list').classList.add('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = true;
+      $('att-list').classList.add('pointer-events-none', 'opacity-60');
+    } else {
+      this.clear(); this.s.loadingKey = cacheKey; $('att-list').innerHTML = this.skeleton(); // 骨架畫面取代全屏鎖定
     }
     try {
-      const r = await this.api('getStudents', { classCode: cls, date, fresh: btn === true }, { silent: !!local.length });
-      if (this.s.loadingKey && this.s.loadingKey !== cacheKey) return;
+      const t2 = performance.now();
+      const r = await this.api('getStudents', { classCode: cls, date, fresh: btn === true }, { silent: true });
+      netMs = Math.round(performance.now() - t2);
+      if (seq !== this.loadSeq) return;
       if (!r.students.length) { this.clear(); return alert('找不到 ' + cls + ' 班的學生紀錄。'); }
       r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
-      this.prepareAttendance(r.students, r.saved || {}, cls, date);
-      this.s.attendanceReady = true; this.s.loadingKey = null;
+      this.dayCache[cacheKey] = { students: r.students, saved: r.saved || {}, t: Date.now() };
+      this.s.loadingKey = null; this.prepareAttendance(r.students, r.saved || {}, cls, date);
+      this.s.attendanceReady = true;
       $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false;
+      this.recordRecent(cls);
+      console.log('[PERF] loadList cache:miss', 'idbMs=' + idbMs, 'netMs=' + netMs, 'totalMs=' + Math.round(performance.now() - T0));
       // 本機快取可能因管理員剛更新名單而過時，背景同步會以全校正式名單作原子替換
       r.students.forEach(st => this.dbPutStudent(st).catch(() => {}));
     } catch (e) {
+      if (seq !== this.loadSeq) return;
       if (!local.length) { this.clear(); alert('錯誤：' + e.message); }
       else {
         this.s.attendanceReady = false; $('att-list').classList.remove('pointer-events-none', 'opacity-60');
@@ -416,6 +486,73 @@ const app = {
         $('submit-btn').disabled = true;
       }
     }
+  },
+  // ----- 常用班別 + 登入後預載今日點名（背景、不阻塞） -----
+  recentClasses() { try { const a = JSON.parse(localStorage.getItem('pe_recent') || '[]'); return Array.isArray(a) ? a.filter(c => CLASSES.includes(c)).slice(0, 5) : []; } catch (_) { return []; } },
+  recordRecent(cls) { try { const a = [cls].concat(this.recentClasses().filter(c => c !== cls)).slice(0, 5); localStorage.setItem('pe_recent', JSON.stringify(a)); } catch (_) {} },
+  async prefetchToday() {
+    if (!this.s.token || !navigator.onLine) return;
+    const date = this.today(), todo = this.recentClasses().filter(c => !this.dayCache[c + '|' + date]);
+    if (!todo.length) return;
+    const bs = $('bg-status'); let done = 0; bs.textContent = '⏳ 預載今日點名 0/' + todo.length; bs.classList.remove('hidden');
+    const worker = async () => {
+      while (todo.length && this.s.token) {
+        const c = todo.shift();
+        try {
+          const r = await this.api('getStudents', { classCode: c, date, fresh: false }, { silent: true });
+          if (r.students && r.students.length) { r.students.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo)); this.dayCache[c + '|' + date] = { students: r.students, saved: r.saved || {}, t: Date.now() }; }
+        } catch (e) { console.warn('[PREFETCH]', c, e.message); }
+        done++; bs.textContent = '⏳ 預載今日點名 ' + done + '/' + (done + todo.length);
+      }
+    };
+    await Promise.all([worker(), worker()]); // 並行 2
+    bs.textContent = '✓ 已預載今日常用班別，切換班別會即時顯示'; setTimeout(() => bs.classList.add('hidden'), 2500);
+  },
+  // ----- 背景檢查：他人是否更新了本堂紀錄（只提示，不自動覆蓋） -----
+  savedDiffers(saved) {
+    const o = this.s.origNorm || {}, ids = new Set(this.s.students.map(x => x.StudentID)), n = {};
+    Object.keys(saved || {}).forEach(id => { if (ids.has(id)) n[id] = this.statusOf(this.parseSaved(saved[id])); });
+    const a = Object.keys(n), b = Object.keys(o);
+    return a.length !== b.length || a.some(id => o[id] !== n[id]);
+  },
+  async bgCheck() {
+    const L = this.s.loaded;
+    if (!this.s.token || !L || !this.s.attendanceReady || this.s.busy || this.bgChecking || !navigator.onLine || document.hidden) return;
+    this.bgChecking = true;
+    try {
+      const r = await this.api('getStudents', { classCode: L.cls, date: L.date, fresh: false }, { silent: true });
+      if (this.s.loaded !== L || this.s.busy) return;
+      const diff = this.savedDiffers(r.saved || {});
+      if (diff) {
+        $('upd-text').textContent = '🔔 偵測到 ' + L.cls + ' 本堂點名紀錄已被更新。' + (this.s.dirty ? '你有未提交的修改，按「重新載入」會放棄這些修改。' : '按「重新載入」查看最新紀錄。') + '（畫面不會自動改動）';
+        $('upd-banner').classList.remove('hidden');
+      } else $('upd-banner').classList.add('hidden');
+    } catch (_) { /* 背景檢查失敗不打擾使用者 */ }
+    finally { this.bgChecking = false; }
+  },
+  // ----- 未提交草稿（轉班／轉日／關頁不遺失；過日自動作廢） -----
+  readDrafts() { try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); return d && d.items ? d : { v: 1, items: {} }; } catch (_) { return { v: 1, items: {} }; } },
+  writeDrafts(d) { try { if (Object.keys(d.items).length) localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); else localStorage.removeItem(DRAFT_KEY); } catch (_) {} },
+  dayOf(ts) { const d = new Date(ts); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); },
+  purgeDrafts() { const d = this.readDrafts(), t = this.today(); Object.keys(d.items).forEach(k => { if (this.dayOf(d.items[k].ts) !== t) delete d.items[k]; }); this.writeDrafts(d); },
+  deleteDraft(key) { const d = this.readDrafts(); if (d.items[key]) { delete d.items[key]; this.writeDrafts(d); } },
+  persistDraft() {
+    const L = this.s.loaded; if (!L || !this.s.attendanceReady || !this.s.students.length) return;
+    const d = this.readDrafts(), key = L.cls + '|' + L.date, items = {}, o = this.s.origNorm || {};
+    this.s.students.forEach(st => { const a = this.s.att[st.StudentID]; if (!a) return; const base = o[st.StudentID] === undefined ? '出席' : o[st.StudentID]; if (this.statusOf(a) !== base) items[st.StudentID] = { p: a.p, mods: a.mods.slice(), other: a.other || '' }; });
+    if (Object.keys(items).length) d.items[key] = { ts: Date.now(), att: items }; else delete d.items[key];
+    this.writeDrafts(d);
+  },
+  persistDraftSoon() { clearTimeout(this.draftTimer); this.draftTimer = setTimeout(() => this.persistDraft(), 400); },
+  applyDraft(cls, date) {
+    const d = this.readDrafts(), key = cls + '|' + date, e = d.items[key]; if (!e) return 0;
+    if (this.dayOf(e.ts) !== this.today()) { this.deleteDraft(key); return 0; }
+    let n = 0; const ids = new Set(this.s.students.map(x => x.StudentID));
+    Object.keys(e.att || {}).forEach(id => {
+      const v = e.att[id]; if (!ids.has(id) || !v || !PRIMARY.includes(v.p)) return;
+      this.s.att[id] = { p: v.p, mods: v.p === '出席' ? (v.mods || []).filter(m => MODS.includes(m)) : [], other: v.p === '其他' ? String(v.other || '').slice(0, 40) : '' }; n++;
+    });
+    return n;
   },
   prepareAttendance(students, saved, cls, date) {
     this.s.students = students.slice().sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
@@ -426,7 +563,9 @@ const app = {
     });
     const n = Object.keys(saved || {}).length, note = $('att-note');
     note.classList.toggle('hidden', !n); note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
-    $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false; this.render();
+    $('att-gender').value = 'all'; this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false;
+    const nd = this.applyDraft(cls, date); if (nd) { this.s.dirty = true; if (!this.s.loadingKey) this.toast('已還原你未提交的 ' + nd + ' 項修改（草稿）', 'warn', 4200); }
+    this.render();
     ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
   },
   render() { if (this.vw === 'grid') this.renderGrid(); else this.renderList(); this.bar(); },
@@ -476,7 +615,7 @@ const app = {
   async sheetAbility() { if (this.s.sheetI == null) return; await this.togAbility(this.s.sheetI); this.sheetRender(); },
   sheetNav(d) {
     const idx = this.shownIdx(), p = idx.indexOf(this.s.sheetI), n = idx[p + d];
-    if (p < 0 || n === undefined) return alert(d > 0 ? '已是最後一位' : '已是第一位');
+    if (p < 0 || n === undefined) return this.toast(d > 0 ? '已是最後一位' : '已是第一位');
     this.openSheet(n);
   },
   sheetRender() {
@@ -522,9 +661,9 @@ const app = {
     if (!this.s.busy) $('submit-btn').textContent = upd ? '✅ 更新點名（' + nchg + (nun ? ' 人，其中 ' + nun + ' 人首次記錄）' : ' 人有修改）') : '✅ 提交點名紀錄（' + (g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學') + ' ' + list.length + ' 人）';
     window.scrollTo(0, y);
   },
-  setP(i, p) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID]; a.p = p; if (p !== '出席') a.mods = []; if (p !== '其他') a.other = ''; this.render(); },
-  togMod(i, m) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID], k = a.mods.indexOf(m); k > -1 ? a.mods.splice(k, 1) : a.mods.push(m); this.render(); },
-  setOther(i, v) { this.s.dirty = true; this.s.att[this.s.students[i].StudentID].other = v.trim(); },
+  setP(i, p) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID]; a.p = p; if (p !== '出席') a.mods = []; if (p !== '其他') a.other = ''; this.render(); this.persistDraft(); },
+  togMod(i, m) { this.s.dirty = true; const a = this.s.att[this.s.students[i].StudentID], k = a.mods.indexOf(m); k > -1 ? a.mods.splice(k, 1) : a.mods.push(m); this.render(); this.persistDraft(); },
+  setOther(i, v) { this.s.dirty = true; this.s.att[this.s.students[i].StudentID].other = v.trim(); this.persistDraftSoon(); },
   dates(i, t) { const s = this.s.students[i]; alert(s.ChiName + (t === 'abs' ? ' 缺席紀錄：\n' + s.absDates : ' 冇帶衫紀錄：\n' + s.noUniformDates)); },
   async togAbility(i) {
     const s = this.s.students[i], ab = s.PEAbility === 'cannot_play' ? 'can_play' : 'cannot_play';
@@ -580,8 +719,11 @@ const app = {
       if (this.s.loaded === L0) { const nt = $('att-note'); nt.classList.remove('hidden'); nt.textContent = `${date} ${cls} 班已有點名紀錄：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。`; }
       console.log('[PERF] 確認點名全流程', Math.round(performance.now() - t0) + 'ms');
       this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render();
-      alert('✅ ' + r.message + (!upd && g !== 'all' ? '\n如另一組亦要點名，請切換「顯示」後再提交。' : ''));
+      if (this.s.loaded === L0) { this.persistDraft(); delete this.dayCache[cls + '|' + date]; $('upd-banner').classList.add('hidden'); } // 已提交部分的草稿即清；其他性別未提交的修改仍保留
+      try { navigator.vibrate && navigator.vibrate(30); } catch (_) {}
+      this.toast('✅ ' + r.message + (!upd && g !== 'all' ? '　如另一組亦要點名，請切換「顯示」後再提交。' : ''), 'ok', g !== 'all' && !upd ? 5000 : 3200);
     } catch (e) {
+      delete this.dayCache[cls + '|' + date]; // 失敗（例如已被另一位老師更改）→ 作廢快取，下次載入取最新
       this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render(); // 失敗：保留所有修改，可重新提交
       alert('❌ 提交失敗，資料未確認儲存（修改已保留，可再按提交）：\n' + e.message);
     }
@@ -593,16 +735,16 @@ const app = {
     if (!confirm(`⚠️ 清除 ${L.cls}（${L.date}）【${label}】已儲存的點名紀錄？\n清除後可重新點名；被清除的紀錄會備份到「Deleted_Log」工作表。\n（畫面上未提交的修改也會被重置）`)) return;
     try {
       const r = await this.api('clearSession', { classCode: L.cls, date: L.date, group: g });
-      this.s.dirty = false; await this.loadList(true);
-      alert('✅ ' + r.message);
+      this.s.dirty = false; delete this.dayCache[L.cls + '|' + L.date]; await this.loadList(true);
+      this.toast('✅ ' + r.message, 'ok');
     } catch (e) { alert('❌ 清除失敗：\n' + e.message); }
   },
   onSel() {
     const cls = $('att-class').value, date = $('att-date').value, L = this.s.loaded;
-    if (L && (L.cls !== cls || L.date !== date) && this.s.dirty && !confirm('目前有未提交的修改，切換後會遺失。確定切換？')) { $('att-class').value = L.cls; $('att-date').value = L.date; return; }
+    if (L && (L.cls !== cls || L.date !== date)) { clearTimeout(this.draftTimer); this.persistDraft(); } // 草稿自動保留，轉班不再彈「會遺失」
     if (cls && date) this.loadList(); else this.clear();
   },
-  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.raw = {}; this.s.loaded = null; this.s.dirty = false; this.s.attendanceReady = false; this.s.loadingKey = null; $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet(); this.bar(); },
+  clear() { this.s.students = []; this.s.att = {}; this.s.origNorm = {}; this.s.raw = {}; this.s.loaded = null; this.s.dirty = false; this.s.attendanceReady = false; this.s.loadingKey = null; $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false; $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet(); $('upd-banner').classList.add('hidden'); this.bar(); },
   gOf(s) { const v = String(s.Gender || '').trim().toUpperCase(); return (v === 'M' || v === '男' || v === 'MALE') ? 'M' : (v === 'F' || v === '女' || v === 'FEMALE') ? 'F' : ''; },
   houseLbl(h) { h = String(h || '').trim(); return !h ? '' : (h.slice(-1) === '社' ? h : h + '社'); },
   houseCls(h) { return ({ '紅': 'bg-red-100 text-red-700', '藍': 'bg-blue-100 text-blue-700', '黃': 'bg-yellow-100 text-yellow-700', '綠': 'bg-green-100 text-green-700' })[String(h).trim()[0]] || 'bg-gray-100 text-gray-700'; },
@@ -889,13 +1031,14 @@ const app = {
 // 未提交的修改或上傳進行中離開頁面時，瀏覽器會先提示
 window.addEventListener('beforeunload', e => { if (app.s.dirty || app.s.busy) { e.preventDefault(); e.returnValue = ''; } });
 fetch(API_URL, { mode: 'no-cors' }).catch(() => {}); // 開頁即叫醒後端，輸入密碼期間完成冷啟動
+window.app = app; // const 不會自動掛到 window；下面的背景同步／更新保護都依賴它
 app.init(); app.resume();
 
 // ===== PWA：註冊 Service Worker、離線提示 =====
 (function () {
   const bar = document.getElementById('offline-bar');
   const upd = () => { if (bar) bar.classList.toggle('hidden', navigator.onLine); };
-  window.addEventListener('online', () => { upd(); if (window.app) app.syncStudentCache(false); }); window.addEventListener('offline', upd); document.addEventListener('visibilitychange', () => { if (!document.hidden && window.app) app.syncStudentCache(false); }); setInterval(() => { if (window.app && !document.hidden) app.syncStudentCache(false); }, 10 * 60 * 1000); upd();
+  window.addEventListener('online', () => { upd(); if (window.app) app.syncStudentCache(false); }); window.addEventListener('offline', upd); document.addEventListener('visibilitychange', () => { if (!window.app) return; if (document.hidden) { app.persistDraft(); } else { app.syncStudentCache(false); app.bgCheck(); } }); window.addEventListener('pagehide', () => { if (window.app) app.persistDraft(); }); window.addEventListener('beforeunload', () => { if (window.app) app.persistDraft(); }); setInterval(() => { if (window.app) app.bgCheck(); }, BG_CHECK_MS); setInterval(() => { if (window.app && !document.hidden) app.syncStudentCache(false); }, 10 * 60 * 1000); upd();
   if ('serviceWorker' in navigator) {
     const busy = () => window.app && (app.s.dirty || app.s.busy);
     window.addEventListener('load', () => {
