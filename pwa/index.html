@@ -326,8 +326,8 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.10.1'; // 須與 Code.gs 的 VERSION 一致
-const UI_BUILD = 'ux3'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const APP_VERSION = '2.10.2'; // 須與 Code.gs 的 VERSION 一致
+const UI_BUILD = 'ux4'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
@@ -409,12 +409,22 @@ function gridTableHtml(m, o) { // o: { esc, today, draftDate }
   const e = o.esc, badge = k => `<span class="gs gs-${k}">${GRID_SYM[k][0]}</span>`;
   const head = m.dates.map(d => `<th data-d="${e(d)}" class="${d === o.today ? 'gt-today' : ''}${d === o.draftDate ? ' gt-draft' : ''}" title="${e(d)}（撳一下開啟當日點名）"><div>${e(d.slice(5).replace('-', '/'))}</div><div class="gt-wd">${gridWd(d)}</div>${d === o.draftDate ? '<div class="gt-wd" style="font-size:9px">草稿</div>' : ''}</th>`).join('');
   const body = m.rows.map(r => `<tr><th class="gt-c0" data-s="${e(r.id)}" scope="row" title="撳一下查看學生資料"><span class="gt-no">${e(r.no)}</span>${e(r.name)}</th>` +
-    r.cells.map((c, j) => `<td data-d="${e(m.dates[j])}" class="gt-${c.k}"${c.raw && c.raw !== '出席' && c.raw !== '缺席' ? ` title="${e(c.raw)}"` : ''}>${c.k === 'none' ? '' : c.syms.map(badge).join('')}</td>`).join('') +
+    r.cells.map((c, j) => `<td data-d="${e(m.dates[j])}" data-s="${e(r.id)}" class="gt-${c.k}"${c.raw && c.raw !== '出席' && c.raw !== '缺席' ? ` title="${e(c.raw)}"` : ''}>${c.k === 'none' ? '' : c.syms.map(badge).join('')}</td>`).join('') +
     `<td class="gt-t gt-tabs${r.abs ? ' on' : ''}">${r.abs}</td><td class="gt-t gt-tuni${r.uni ? ' on' : ''}">${r.uni}</td></tr>`).join('');
   return `<div class="gt-scroll" id="gt-scroll" onclick="app.gtClick(event)"><table class="gt"><thead><tr><th class="gt-c0">學號 姓名</th>${head}<th class="gt-t">缺席<br>總數</th><th class="gt-t">冇帶衫<br>總數</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
+function gridEditRequest(cls, date, sid, orig, status) { // 總表直接改過去日期：沿用 saveAttendance「更新模式」（後端只更新該名學生，並以 Orig 核對有冇被別人改過）
+  return { sessionData: { classCode: cls, date: date, group: 'all', mode: 'update', studentIds: [sid] }, records: [{ StudentID: sid, AttendanceStatus: status, Orig: orig ? orig : null }] };
+}
+function gridPatch(data, date, sid, status) { // 儲存成功後就地更新本機總表快取（免再向後端取全表）；成功回傳 true
+  if (!data || !data.dates || !data.sts) return false;
+  const j = data.dates.indexOf(date), s = (data.students || []).find(x => x.id === sid);
+  if (j < 0 || !s) return false;
+  let k = data.sts.indexOf(status); if (k < 0) { data.sts.push(status); k = data.sts.length - 1; }
+  s.r[j] = k; return true;
+}
 /*GRID_CORE_END*/
-function gtNewState() { return { mode: 'term', from: '', to: '', cache: {}, gen: {}, loading: '', fresh: false, err: null, model: null, cls: '', range: null, drawKey: null }; }
+function gtNewState() { return { mode: 'term', from: '', to: '', cache: {}, gen: {}, loading: '', fresh: false, err: null, model: null, cls: '', range: null, drawKey: null, edit: null, saving: false }; }
 
 const SC_RULES = [['J1', '初中 上學期（中一至三）'], ['J2', '初中 下學期（中一至三）'], ['S', '高中 全年（中四、五）'], ['F6', '中六（只計上學期）']];
 const SC_F = [['attFull', '出席滿分'], ['absPer', '缺席每堂扣'], ['atFull', '態度滿分'], ['basePct', '態度基本分 %'], ['uniPer', '冇帶衫每次扣']];
@@ -813,6 +823,7 @@ const app = {
       <button class="gb" onclick="app.gtRefresh()">🔄 重新整理</button><button class="gb" onclick="app.gtCsv()">⬇ 下載 CSV</button></div>
       <div id="gt-info" class="text-xs text-gray-600 mb-1"></div>
       <div id="gt-legend" class="flex flex-wrap gap-1 mb-2">${leg}<span class="gt-leg">空白＝沒有紀錄</span></div>
+      <div class="text-xs text-gray-500 mb-1">撳格仔＝修改該日紀錄：過去日期確認後即時儲存；<b>目前載入的日期</b>只是草稿，須按「提交」。撳日期標題＝開啟當日點名；撳姓名＝學生資料。</div>
       <div id="gt-wrap"></div>`;
     $('gt-mode').value = this.gt.mode; $('gt-from').value = this.gt.from; $('gt-to').value = this.gt.to; this.gt.drawKey = null;
   },
@@ -874,6 +885,7 @@ const app = {
     window.scrollTo(0, y);
   },
   gtClick(e) {
+    const td = e.target.closest('td[data-s][data-d]'); if (td) return this.gtCell(td.dataset.s, td.dataset.d); // 撳格仔＝改該日該生狀態
     const t = e.target.closest('[data-s],[data-d]'); if (!t) return;
     if (t.dataset.s) this.gtStu(t.dataset.s); else if (t.dataset.d) this.gtDay(t.dataset.d);
   },
@@ -888,13 +900,59 @@ const app = {
     if (i < 0) return this.toast('找不到該學生，請重新載入名單', 'warn');
     this.openSheet(i);
   },
+  // ----- 總表直接點名（v2.10.2） -----
+  gtCell(sid, d) {
+    const L = this.s.loaded, g = this.gt; if (!L || g.saving || this.s.busy) return;
+    if (d === L.date) { // 目前載入的日期：沿用草稿流程（現有底部選單），按「提交」才儲存
+      const i = this.s.students.findIndex(x => x.StudentID === sid);
+      if (i < 0) return this.toast('找不到該學生，請重新載入名單', 'warn');
+      return this.openSheet(i);
+    }
+    const m = g.model, r = m && m.rows.find(x => x.id === sid), j = m ? m.dates.indexOf(d) : -1;
+    if (!r || j < 0) return;
+    const raw = r.cells[j].raw || '';
+    this.s.sheetI = null; g.edit = { sid, date: d, no: r.no, name: r.name, raw, a: this.parseSaved(raw || '出席') };
+    $('sheet').classList.remove('hidden'); this.gtEditRender();
+  },
+  gtEditRender() {
+    const e = this.gt.edit; if (!e) return;
+    const a = e.a, big = 'min-h-[56px] rounded-xl font-bold border-2 ';
+    const on = { '出席': a.mods.length ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-green-500 text-white border-green-600', '缺席': 'bg-red-500 text-white border-red-600', '比賽': 'bg-blue-500 text-white border-blue-600', '其他': 'bg-gray-600 text-white border-gray-700' };
+    const pbtn = p => `<button class="${big}text-base ${a.p === p ? on[p] : 'bg-gray-100 text-gray-700 border-gray-200'}" onclick="app.gtEditP('${p}')">${p}</button>`;
+    const mods = a.p !== '出席' ? '' : `<div class="grid grid-cols-3 gap-2 mt-3">${MODS.map(m => `<button class="${big}text-base ${a.mods.includes(m) ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-white text-gray-700 border-gray-300'}" onclick="app.gtEditMod('${m}')">${m}</button>`).join('')}</div><div class="text-xs text-yellow-800 mt-1">冇帶衫／受傷／見社工：仍然計出席</div>`;
+    const other = a.p !== '其他' ? '' : `<input class="inp mt-3 text-base" placeholder="原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" oninput="app.gtEditOther(this.value)">`;
+    $('sheet-body').innerHTML = `<div class="flex items-center justify-between mb-1"><div class="text-lg"><span class="text-gray-500 mr-2">${esc(e.no)}</span><b class="text-blue-800">${esc(e.name)}</b></div><button class="px-4 py-2 text-2xl text-gray-500" onclick="app.closeSheet()">✕</button></div>` +
+      `<div class="text-sm mb-3 p-2 rounded bg-amber-50 border border-amber-300 text-amber-900">📅 <b>${esc(e.date)}（${gridWd(e.date)}）</b>　現時紀錄：<b>${e.raw ? esc(e.raw) : '沒有紀錄'}</b><br>修改後按「儲存」會即時寫入紀錄。</div>` +
+      `<div class="grid grid-cols-4 gap-2">${PRIMARY.map(pbtn).join('')}</div>${mods}${other}` +
+      `<div class="grid grid-cols-2 gap-2 mt-4"><button class="btn bg-gray-500" onclick="app.closeSheet()">取消</button><button id="gt-save" class="btn bg-green-600" onclick="app.gtEditSave()">💾 儲存修改</button></div>`;
+  },
+  gtEditP(p) { const e = this.gt.edit; if (!e) return; e.a.p = p; if (p !== '出席') e.a.mods = []; if (p !== '其他') e.a.other = ''; this.gtEditRender(); },
+  gtEditMod(m) { const e = this.gt.edit; if (!e) return; const k = e.a.mods.indexOf(m); k > -1 ? e.a.mods.splice(k, 1) : e.a.mods.push(m); this.gtEditRender(); },
+  gtEditOther(v) { const e = this.gt.edit; if (e) e.a.other = v.trim(); },
+  async gtEditSave() {
+    const e = this.gt.edit, L = this.s.loaded, g = this.gt; if (!e || !L || g.saving) return;
+    const st = this.statusOf(e.a);
+    if (e.raw && st === this.statusOf(this.parseSaved(e.raw))) { this.closeSheet(); return this.toast('沒有修改'); }
+    if (!confirm(`修改 ${e.name}（${e.date}）的點名紀錄？\n${e.raw || '（沒有紀錄）'}  →  ${st}\n儲存後即時寫入紀錄。`)) return;
+    const cls = L.cls, q = gridEditRequest(cls, e.date, e.sid, e.raw, st), btn = $('gt-save');
+    g.saving = true; if (btn) { btn.disabled = true; btn.textContent = '⏳ 儲存中…'; }
+    try {
+      await this.api('saveAttendance', Object.assign({ requestId: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) }, q), { silent: true });
+      Object.keys(g.cache).forEach(k => { if (k.indexOf(cls + '|') === 0) gridPatch(g.cache[k].data, e.date, e.sid, st); }); // 就地更新，不需重新向後端取全表
+      this.dropDay(cls + '|' + e.date);
+      const nm = e.name, dt = e.date; this.closeSheet(); this.toast('✅ 已更新 ' + nm + ' ' + dt.slice(5) + '：' + st, 'ok');
+    } catch (err) {
+      this.gtDrop(cls); this.dropDay(cls + '|' + e.date); this.closeSheet(); // 失敗（例如已被另一位老師更改）→ 作廢快取，重新取最新
+      alert('❌ 修改失敗，資料未確認儲存：\n' + err.message);
+    } finally { g.saving = false; if (this.vw === 'tbl' && this.s.token) this.renderTable(); }
+  },
   gtCsv() {
     const m = this.gt.model, r = this.gt.range;
     if (!m || !m.dates.length) return alert('目前沒有可匯出的總表資料（請先選擇有點名紀錄的班別及日期範圍）');
     this.download('FRCSS_Class_Grid_' + this.gt.cls + '_' + r.from + '_' + r.to + '.csv', gridCsv(m, v => this.csvCell(v)));
   },
   openSheet(i) { this.s.sheetI = i; $('sheet').classList.remove('hidden'); this.sheetRender(); },
-  closeSheet() { this.s.sheetI = null; $('sheet').classList.add('hidden'); },
+  closeSheet() { this.s.sheetI = null; if (this.gt) this.gt.edit = null; $('sheet').classList.add('hidden'); },
   sheetP(p) { const i = this.s.sheetI; if (i == null) return; this.setP(i, p); if (p === '其他') this.sheetRender(); else this.closeSheet(); }, // 出席／缺席／比賽：選好即收起
   sheetMod(m) { if (this.s.sheetI == null) return; this.togMod(this.s.sheetI, m); this.sheetRender(); },
   async sheetAbility() { if (this.s.sheetI == null) return; await this.togAbility(this.s.sheetI); this.sheetRender(); },
