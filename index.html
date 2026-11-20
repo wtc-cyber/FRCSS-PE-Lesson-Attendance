@@ -38,6 +38,29 @@
   #toast { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); transition: opacity .2s, transform .2s; }
   #toast.hide { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { button { transition: none; } .animate-pulse { animation: none; } }
+  /* v2.10.1 課堂點名總表：左欄／上列固定，內部水平＋垂直捲動，不擠壓 */
+  .gt-scroll { overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; max-height: calc(100vh - 230px); min-height: 200px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+  .gt { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 14px; }
+  .gt th, .gt td { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; text-align: center; padding: 0; height: 40px; }
+  .gt thead th { position: sticky; top: 0; z-index: 3; background: #eff6ff; min-width: 44px; width: 44px; font-size: 11px; line-height: 1.2; font-weight: 700; color: #1e3a8a; cursor: pointer; vertical-align: middle; }
+  .gt .gt-wd { font-weight: 400; color: #6b7280; }
+  .gt .gt-c0 { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 0 6px; min-width: 100px; white-space: nowrap; cursor: pointer; border-right: 2px solid #9ca3af; font-weight: 700; color: #1e40af; }
+  .gt thead .gt-c0 { z-index: 4; background: #dbeafe; cursor: default; font-size: 12px; }
+  .gt .gt-no { display: inline-block; min-width: 1.4em; font-weight: 400; color: #6b7280; font-size: 12px; margin-right: 2px; }
+  .gt thead th.gt-today { background: #bfdbfe; box-shadow: inset 0 -3px 0 #2563eb; }
+  .gt thead th.gt-draft { background: #fef3c7; box-shadow: inset 0 -3px 0 #f59e0b; }
+  .gt td[data-d] { min-width: 44px; cursor: pointer; font-weight: 700; }
+  .gt td[data-d]:active, .gt thead th:active { filter: brightness(.9); }
+  .gt .gt-t { min-width: 52px; width: 52px; background: #f9fafb; font-weight: 700; color: #9ca3af; }
+  .gt thead th.gt-t { background: #f3f4f6; color: #374151; cursor: default; }
+  .gt .gt-tabs.on { color: #b91c1c; background: #fee2e2; }
+  .gt .gt-tuni.on { color: #854d0e; background: #fef9c3; }
+  .gt-ok { background: #f0fdf4; } .gt-abs { background: #fee2e2; } .gt-uni { background: #fef9c3; } .gt-inj { background: #ffedd5; } .gt-sw { background: #ccfbf1; } .gt-comp { background: #dbeafe; } .gt-oth { background: #e5e7eb; }
+  .gs { display: inline-block; font-weight: 700; line-height: 1; }
+  .gs-ok { color: #15803d; } .gs-abs { color: #b91c1c; } .gs-uni { color: #854d0e; } .gs-inj { color: #c2410c; } .gs-sw { color: #0f766e; } .gs-comp { color: #1d4ed8; } .gs-oth { color: #374151; }
+  .gt-leg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; font-size: 12px; white-space: nowrap; }
+  .gt-leg .gs { min-width: 1.3em; text-align: center; padding: 2px 3px; border-radius: 4px; font-size: 13px; }
+  @media (max-width: 640px) { .gt-scroll { max-height: calc(100vh - 200px); } .gt .gt-c0 { min-width: 88px; font-size: 13px; } .gt { font-size: 13px; } }
   @keyframes sp { to { transform: rotate(360deg); } }
   @keyframes syncmove { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
   .sync-bar { height: 3px; overflow: hidden; background: #dbeafe; border-radius: 2px; }
@@ -114,7 +137,7 @@
           <input type="date" id="att-date2" class="gb" onchange="app.setDate(this.value)"><button class="gb" onclick="app.setDate(app.today())">今日</button>
           <button id="gb-all" class="gb" onclick="app.setG('all')">全班</button><button id="gb-M" class="gb" onclick="app.setG('M')">男</button><button id="gb-F" class="gb" onclick="app.setG('F')">女</button>
           <span class="flex-1"></span>
-          <button id="vb-grid" class="gb" onclick="app.setView('grid')">▦ 格仔</button><button id="vb-list" class="gb" onclick="app.setView('list')">☰ 列表</button>
+          <button id="vb-grid" class="gb" onclick="app.setView('grid')">▦ 格仔</button><button id="vb-list" class="gb" onclick="app.setView('list')">☰ 列表</button><button id="vb-tbl" class="gb" onclick="app.setView('tbl')">▤ 總表</button>
           <button class="gb" onclick="app.openFilter()">更改班別</button><button class="gb !text-red-700 !border-red-300" onclick="app.clearSession()">🗑 清除本堂</button>
         </div>
         <div id="att-stats" class="hidden p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs font-bold flex flex-wrap gap-1.5"></div>
@@ -303,9 +326,10 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.10.0'; // 須與 Code.gs 的 VERSION 一致
-const UI_BUILD = 'ux2'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const APP_VERSION = '2.10.1'; // 須與 Code.gs 的 VERSION 一致
+const UI_BUILD = 'ux3'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
+const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
 const DRAFT_KEY = 'pe_draft_v1';        // 未提交草稿 localStorage key
 const PRIMARY = ['出席', '缺席', '比賽', '其他'], MODS = ['冇帶衫', '受傷', '見社工'];
@@ -313,6 +337,84 @@ const SUMDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓�
 const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c => CLASSES.push(f + c)));
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/*GRID_CORE_START*/
+// ===== v2.10.1 課堂點名總表：純函數核心（不接觸 DOM／網絡，Node 測試直接載入此區塊） =====
+// 狀態判斷與後端 getStudentSummary 完全一致：先判斷缺席／病假 → 比賽 → 其他 → 其餘為出席（再看 冇帶衫／受傷／見社工）
+const GRID_MODS = ['冇帶衫', '受傷', '見社工'];
+const GRID_MOD_KEY = { '冇帶衫': 'uni', '受傷': 'inj', '見社工': 'sw' };
+const GRID_SYM = { ok: ['✓', '出席'], abs: ['缺', '缺席（含病假）'], uni: ['衫', '冇帶衫（仍計出席）'], inj: ['傷', '受傷（仍計出席）'], sw: ['工', '見社工（仍計出席）'], comp: ['賽', '比賽（不計缺席）'], oth: ['其', '其他（不計缺席）'] };
+const GRID_COLOR = { ok: '#15803d', abs: '#b91c1c', uni: '#854d0e', inj: '#c2410c', sw: '#0f766e', comp: '#1d4ed8', oth: '#374151' };
+function gridCell(st) { // 一個狀態字串 → { k: 主類別, syms: 要顯示的符號鍵, abs: 0|1, uni: 0|1, raw }
+  st = String(st == null ? '' : st);
+  if (!st) return { k: 'none', syms: [], abs: 0, uni: 0, raw: '' };
+  if (st.indexOf('缺席') >= 0 || st.indexOf('病假') >= 0) return { k: 'abs', syms: ['abs'], abs: 1, uni: 0, raw: st }; // 先判斷缺席；「其他: 病假」沿用現有邏輯＝缺席
+  if (st.indexOf('比賽') === 0) return { k: 'comp', syms: ['comp'], abs: 0, uni: 0, raw: st };
+  if (st.indexOf('其他') === 0) return { k: 'oth', syms: ['oth'], abs: 0, uni: 0, raw: st };
+  const mods = GRID_MODS.filter(m => st.indexOf(m) >= 0);
+  if (!mods.length) return { k: 'ok', syms: ['ok'], abs: 0, uni: 0, raw: st };
+  const ks = mods.map(m => GRID_MOD_KEY[m]); // 冇帶衫只會在出席紀錄走到這裡
+  return { k: ks[0], syms: ks, abs: 0, uni: mods.indexOf('冇帶衫') >= 0 ? 1 : 0, raw: st };
+}
+function gridCellText(c) { return c.k === 'none' ? '' : c.syms.map(k => GRID_SYM[k][0]).join(''); }
+function gridWd(d) { return '日一二三四五六'[new Date(d + 'T00:00:00Z').getUTCDay()]; }
+function gridRange(mode, cfg, today, custom) { // 今學期／全年／自訂 → { from, to }；自訂日期不完整回傳 null；設定讀不到就用預設學年
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (mode === 'custom') {
+    let f = custom && custom.from, t = custom && custom.to;
+    if (!re.test(f || '') || !re.test(t || '')) return null;
+    if (f > t) { const x = f; f = t; t = x; }
+    return { from: f, to: t };
+  }
+  const ok = c => c && re.test(c.from || '') && re.test(c.to || '');
+  let s1, s2;
+  if (cfg && ok(cfg.s1) && ok(cfg.s2)) { s1 = cfg.s1; s2 = cfg.s2; }
+  else {
+    const y = Number(String(today).slice(0, 4)), y0 = Number(String(today).slice(5, 7)) >= 9 ? y : y - 1;
+    s1 = { from: y0 + '-09-01', to: (y0 + 1) + '-01-31' }; s2 = { from: (y0 + 1) + '-02-01', to: (y0 + 1) + '-08-31' };
+  }
+  if (mode === 'year') return { from: s1.from, to: s2.to };
+  return today <= s1.to ? { from: s1.from, to: s1.to } : { from: s2.from, to: s2.to };
+}
+// data＝後端 getClassGrid 回傳；o.overlay＝{ date, cells:{StudentID: 狀態字串} } 即時草稿；o.ids＝只顯示的學生
+function gridModel(data, o) {
+  o = o || {};
+  const from = o.from || '0000-00-00', to = o.to || '9999-99-99', ov = o.overlay || null, sts = (data && data.sts) || [], dts = (data && data.dates) || [];
+  const studs = ((data && data.students) || []).filter(s => !o.ids || o.ids[s.id]);
+  const per = studs.map(s => {
+    const m = {};
+    dts.forEach((d, j) => { const v = s.r ? s.r[j] : undefined; if (d >= from && d <= to && typeof v === 'number' && v >= 0 && sts[v] !== undefined) m[d] = String(sts[v]); });
+    return m;
+  });
+  if (ov && ov.date >= from && ov.date <= to) studs.forEach((s, i) => { // 今日草稿：以畫面上現時狀態蓋過已儲存的紀錄
+    const v = ov.cells ? ov.cells[s.id] : undefined;
+    if (v === undefined || v === null) return;
+    if (v === '') delete per[i][ov.date]; else per[i][ov.date] = String(v);
+  });
+  const set = {}; per.forEach(m => Object.keys(m).forEach(d => { set[d] = 1; }));
+  const dates = Object.keys(set).sort(); // 只保留真正有紀錄的日期，由舊到新
+  const rows = studs.map((s, i) => {
+    const cells = dates.map(d => gridCell(per[i][d]));
+    return { id: s.id, no: s.no, name: s.name, cells: cells, abs: cells.reduce((n, c) => n + c.abs, 0), uni: cells.reduce((n, c) => n + c.uni, 0) };
+  });
+  rows.sort((a, b) => (parseInt(a.no, 10) || 0) - (parseInt(b.no, 10) || 0) || String(a.no).localeCompare(String(b.no)));
+  return { dates: dates, rows: rows };
+}
+function gridCsv(m, csvCell) { // 學生 × 日期；符號與畫面一致；最後兩欄＝缺席總數、冇帶衫總數
+  const lines = [['學號', '姓名'].concat(m.dates, ['缺席總數', '冇帶衫總數']).map(csvCell).join(',')];
+  m.rows.forEach(r => lines.push([r.no, r.name].concat(r.cells.map(gridCellText), [r.abs, r.uni]).map(csvCell).join(',')));
+  return lines.join('\n');
+}
+function gridTableHtml(m, o) { // o: { esc, today, draftDate }
+  const e = o.esc, badge = k => `<span class="gs gs-${k}">${GRID_SYM[k][0]}</span>`;
+  const head = m.dates.map(d => `<th data-d="${e(d)}" class="${d === o.today ? 'gt-today' : ''}${d === o.draftDate ? ' gt-draft' : ''}" title="${e(d)}（撳一下開啟當日點名）"><div>${e(d.slice(5).replace('-', '/'))}</div><div class="gt-wd">${gridWd(d)}</div>${d === o.draftDate ? '<div class="gt-wd" style="font-size:9px">草稿</div>' : ''}</th>`).join('');
+  const body = m.rows.map(r => `<tr><th class="gt-c0" data-s="${e(r.id)}" scope="row" title="撳一下查看學生資料"><span class="gt-no">${e(r.no)}</span>${e(r.name)}</th>` +
+    r.cells.map((c, j) => `<td data-d="${e(m.dates[j])}" class="gt-${c.k}"${c.raw && c.raw !== '出席' && c.raw !== '缺席' ? ` title="${e(c.raw)}"` : ''}>${c.k === 'none' ? '' : c.syms.map(badge).join('')}</td>`).join('') +
+    `<td class="gt-t gt-tabs${r.abs ? ' on' : ''}">${r.abs}</td><td class="gt-t gt-tuni${r.uni ? ' on' : ''}">${r.uni}</td></tr>`).join('');
+  return `<div class="gt-scroll" id="gt-scroll" onclick="app.gtClick(event)"><table class="gt"><thead><tr><th class="gt-c0">學號 姓名</th>${head}<th class="gt-t">缺席<br>總數</th><th class="gt-t">冇帶衫<br>總數</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+/*GRID_CORE_END*/
+function gtNewState() { return { mode: 'term', from: '', to: '', cache: {}, gen: {}, loading: '', fresh: false, err: null, model: null, cls: '', range: null, drawKey: null }; }
 
 const SC_RULES = [['J1', '初中 上學期（中一至三）'], ['J2', '初中 下學期（中一至三）'], ['S', '高中 全年（中四、五）'], ['F6', '中六（只計上學期）']];
 const SC_F = [['attFull', '出席滿分'], ['absPer', '缺席每堂扣'], ['atFull', '態度滿分'], ['basePct', '態度基本分 %'], ['uniPer', '冇帶衫每次扣']];
@@ -324,6 +426,7 @@ const SC_BASE = ['Class', 'StudentNo', 'ChiName', 'House', 'Lv'];
 const SC_RULE_DEF = { J1: { attFull: 15, absPer: 1, atFull: 15, basePct: 70, uniPer: 1 }, J2: { attFull: 10, absPer: 0.5, atFull: 10, basePct: 70, uniPer: 0.5 }, S: { attFull: 10, absPer: 0.5, atFull: 10, basePct: 70, uniPer: 0.5 }, F6: { attFull: 20, absPer: 1, atFull: 20, basePct: 70, uniPer: 1 } };
 const app = {
   sc: { cfg: null, data: null, key: '', saved: false },
+  gt: gtNewState(), vwPrev: 'grid',
   s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false },
   dbPromise: null, studentSyncing: false,
   dayCache: {}, dropAt: {}, bundleAt: 0, bundleBusy: false, bgChecking: false, toastTimer: null, draftTimer: null,
@@ -441,7 +544,7 @@ const app = {
     try { localStorage.removeItem('pe_tk'); } catch (_) {}
     this.persistDraft(); // 登出前先保留未提交草稿（只在當日有效）
     this.dayCache = {}; this.dropAt = {}; this.bundleAt = 0; $('upd-banner').classList.add('hidden'); $('bg-status').classList.add('hidden');
-    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false }; this.sc = { cfg: null, data: null, key: '', saved: false };
+    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false }; this.sc = { cfg: null, data: null, key: '', saved: false }; this.gt = gtNewState();
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
   },
@@ -496,7 +599,7 @@ const app = {
     const cls = $('att-class').value, date = $('att-date').value;
     if (!cls || !date) return alert('請填寫日期及選擇班別！');
     const soft = btn === 'soft', cacheKey = cls + '|' + date, T0 = performance.now(); let idbMs = 0, netMs = 0; const seq = this.loadSeq = (this.loadSeq || 0) + 1; // 只接受最新一次載入的回應
-    if (btn === true || soft) this.deleteDraft(cacheKey); // 手動重新載入＝放棄草稿
+    if (btn === true || soft) { this.deleteDraft(cacheKey); this.gtDrop(cls); } // 手動重新載入＝放棄草稿，並作廢該班總表快取
     $('upd-banner').classList.add('hidden'); this.syncChip(false);
 
     // 1) 同日同班 session 快取：即時顯示，背景再核對一次
@@ -652,7 +755,7 @@ const app = {
     this.render();
     ['att-stats', 'att-submit'].forEach(i => $(i).classList.remove('hidden'));
   },
-  render() { if (this.vw === 'grid') this.renderGrid(); else this.renderList(); this.bar(); },
+  render() { if (this.vw === 'grid') this.renderGrid(); else if (this.vw === 'tbl') this.renderTable(); else this.renderList(); this.bar(); },
   bar() {
     const has = this.s.students.length > 0, g = $('att-gender').value;
     $('att-bar').classList.toggle('hidden', !has);
@@ -660,7 +763,7 @@ const app = {
     if (!has) return;
     $('att-sum').textContent = $('att-class').value || ''; $('att-date2').value = $('att-date').value;
     ['all', 'M', 'F'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('gb-' + k).classList.toggle(c, g === k)));
-    ['grid', 'list'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
+    ['grid', 'list', 'tbl'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
   },
   setG(k) { $('att-gender').value = k; try { localStorage.setItem('pe_gender', k); } catch (_) {} this.render(); },
   lastG() { // 還原上次揀嘅 全班／男／女；若本班沒有該性別學生就用全班，避免空畫面
@@ -668,7 +771,7 @@ const app = {
     if (g !== 'M' && g !== 'F') return 'all';
     return this.s.students.some(x => this.gOf(x) === g) ? g : 'all';
   },
-  setView(v) { this.vw = v; try { localStorage.setItem('pe_view', v); } catch (_) {} this.render(); },
+  setView(v) { if (v !== 'tbl') { try { localStorage.setItem('pe_view', v); } catch (_) {} } else if (this.vw !== 'tbl') this.vwPrev = this.vw; this.vw = v; this.render(); }, // 總表只是暫時檢視，不寫入 pe_view（重開頁面仍用格仔／列表）
   setDate(v) { if (!v) return; $('att-date').value = v; this.onSel(); this.bar(); }, // 預設今日，可隨時改日期；已有紀錄會自動載入
   openFilter() { this.s.filterOpen = true; this.bar(); window.scrollTo(0, 0); },
   shownIdx() { const g = $('att-gender').value; return this.s.students.map((s, i) => i).filter(i => g === 'all' || this.gOf(this.s.students[i]) === g); },
@@ -696,6 +799,99 @@ const app = {
     const nchg = idx.filter(i => this.isChanged(this.s.students[i])).length, nun = this.nUn(idx.map(i => this.s.students[i])), lbl = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學';
     if (!this.s.busy) $('submit-btn').textContent = upd ? '✅ 更新點名（' + nchg + (nun ? ' 人，其中 ' + nun + ' 人首次記錄）' : ' 人有修改）') : '✅ 提交點名紀錄（' + lbl + ' ' + idx.length + ' 人）';
     window.scrollTo(0, y);
+  },
+  // ----- 課堂點名總表（v2.10.1；只有撳「▤ 總表」才會向後端取資料，其他流程不增加任何請求） -----
+  gtDrop(cls) { const g = this.gt; g.gen[cls] = (g.gen[cls] || 0) + 1; Object.keys(g.cache).forEach(k => { if (k.indexOf(cls + '|') === 0) delete g.cache[k]; }); g.err = null; },
+  gtKey(cls, r) { return cls + '|' + r.from + '|' + r.to; },
+  gtRange() { return gridRange(this.gt.mode, this.sc.cfg, this.today(), { from: this.gt.from, to: this.gt.to }); }, // 設定讀不到時 cfg 為預設值，gridRange 亦有後備
+  gtShell() {
+    if ($('gt-bar') && $('gt-wrap')) return;
+    const leg = ['ok', 'abs', 'uni', 'inj', 'sw', 'comp', 'oth'].map(k => `<span class="gt-leg"><span class="gs gs-${k} gt-${k}">${GRID_SYM[k][0]}</span>${GRID_SYM[k][1]}</span>`).join('');
+    $('att-list').innerHTML = `<div id="gt-bar" class="flex flex-wrap items-end gap-2 mb-2">
+      <div><label class="lbl !mb-0.5 text-xs">日期範圍</label><select id="gt-mode" class="inp !p-1.5 !w-auto" onchange="app.gtMode(this.value)"><option value="term">今學期</option><option value="year">全年</option><option value="custom">自訂日期</option></select></div>
+      <div id="gt-custom" class="hidden items-end gap-1"><input type="date" id="gt-from" class="inp !p-1.5 !w-auto" onchange="app.gtCustom()"><span class="pb-2 text-sm">至</span><input type="date" id="gt-to" class="inp !p-1.5 !w-auto" onchange="app.gtCustom()"></div>
+      <button class="gb" onclick="app.gtRefresh()">🔄 重新整理</button><button class="gb" onclick="app.gtCsv()">⬇ 下載 CSV</button></div>
+      <div id="gt-info" class="text-xs text-gray-600 mb-1"></div>
+      <div id="gt-legend" class="flex flex-wrap gap-1 mb-2">${leg}<span class="gt-leg">空白＝沒有紀錄</span></div>
+      <div id="gt-wrap"></div>`;
+    $('gt-mode').value = this.gt.mode; $('gt-from').value = this.gt.from; $('gt-to').value = this.gt.to; this.gt.drawKey = null;
+  },
+  gtMsg(html) { const w = $('gt-wrap'); if (w) w.innerHTML = `<div class="card text-center text-gray-500 !mb-0">${html}</div>`; },
+  gtMode(m) {
+    const g = this.gt; g.mode = m;
+    if (m === 'custom' && (!g.from || !g.to)) { const r = gridRange('term', this.sc.cfg, this.today(), null); g.from = r.from; g.to = r.to; $('gt-from').value = g.from; $('gt-to').value = g.to; }
+    this.renderTable();
+  },
+  gtCustom() { this.gt.from = $('gt-from').value; this.gt.to = $('gt-to').value; this.renderTable(); },
+  gtRefresh() { const L = this.s.loaded; if (!L) return; this.gtDrop(L.cls); this.gt.fresh = true; this.renderTable(); },
+  gtChrome() { // 總表模式下，點名統計列及提交按鈕仍與格仔／列表一致（今日草稿可直接提交）
+    const idx = this.shownIdx(), shown = idx.map(i => this.s.students[i]), g = $('att-gender').value, upd = this.hasSaved();
+    this.stats(shown);
+    const nchg = shown.filter(s => this.isChanged(s)).length, nun = this.nUn(shown), lbl = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學';
+    if (!this.s.busy) $('submit-btn').textContent = upd ? '✅ 更新點名（' + nchg + (nun ? ' 人，其中 ' + nun + ' 人首次記錄）' : ' 人有修改）') : '✅ 提交點名紀錄（' + lbl + ' ' + shown.length + ' 人）';
+  },
+  renderTable() {
+    const L = this.s.loaded, g = this.gt; if (!L) return;
+    const y = window.scrollY; this.gtShell(); this.gtChrome();
+    $('gt-custom').classList.toggle('hidden', g.mode !== 'custom'); $('gt-custom').classList.toggle('flex', g.mode === 'custom');
+    if (!this.sc.cfg && g.mode !== 'custom') { this.gtMsg('⏳ 正在讀取學期設定…'); this.scLoadCfg().then(() => { if (this.vw === 'tbl') this.renderTable(); }); return; }
+    const r = this.gtRange();
+    if (!r) return this.gtMsg('請選擇有效的開始及結束日期');
+    const key = this.gtKey(L.cls, r), hit = g.cache[key];
+    if (hit && Date.now() - hit.t < GT_TTL) { this.gtDraw(L.cls, r, hit.data, y); return; }
+    if (g.loading === key) return;
+    if (g.err && g.err.key === key) { this.gtMsg('❌ ' + esc(g.err.msg) + '<div class="mt-2"><button class="gb" onclick="app.gtRefresh()">再試一次</button></div>'); return; }
+    this.gtFetch(L.cls, r, key);
+  },
+  async gtFetch(cls, r, key) {
+    const g = this.gt, gen = g.gen[cls] || 0, fresh = g.fresh; g.fresh = false; g.loading = key; g.err = null;
+    this.gtMsg('⏳ 正在載入 ' + esc(cls) + ' 總表…');
+    try {
+      const data = await this.api('getClassGrid', { classCode: cls, from: r.from, to: r.to, fresh }, { silent: true, timeout: 60000 });
+      if ((g.gen[cls] || 0) === gen) g.cache[key] = { data, t: Date.now() }; // 載入期間若已提交／重新載入，這份資料可能過時，不入快取，由下面重新載入
+    } catch (e) { g.err = { key, msg: /無效的操作/.test(e.message) ? '後端尚未更新至 v2.10.1，請先把最新 Code.gs 重新部署為「新版本」。' : e.message }; }
+    finally { if (g.loading === key) g.loading = ''; }
+    if (this.vw === 'tbl' && this.s.token) this.renderTable();
+  },
+  gtDraw(cls, r, data, y) {
+    const L = this.s.loaded, g = this.gt, ids = {};
+    this.shownIdx().forEach(i => { ids[this.s.students[i].StudentID] = 1; });
+    let overlay = null; // 今日（目前載入日期）即時草稿：直接讀 this.s.att，不提交、不修改任何資料
+    if (L && L.cls === cls) {
+      const cells = {}, o = this.s.origNorm || {};
+      this.s.students.forEach(st => { const a = this.s.att[st.StudentID]; if (a && (o[st.StudentID] !== undefined || this.s.dirty)) cells[st.StudentID] = this.statusOf(a); }); // 已儲存，或你已動過畫面＝顯示現時狀態；完全未點名則留空
+      overlay = { date: L.date, cells };
+    }
+    const m = gridModel(data, { from: r.from, to: r.to, ids: $('att-gender').value === 'all' ? null : ids, overlay });
+    g.model = m; g.cls = cls; g.range = r;
+    $('gt-info').textContent = `${cls}｜${r.from} 至 ${r.to}｜${m.dates.length} 個點名日｜${m.rows.length} 人` + (overlay && this.s.dirty && m.dates.indexOf(L.date) >= 0 ? `｜${L.date} 含未提交草稿` : '');
+    if (!m.rows.length) { this.gtMsg('找不到符合的學生'); return; }
+    if (!m.dates.length) { this.gtMsg('此日期範圍內沒有點名紀錄'); return; }
+    const sc = $('gt-scroll'), keep = sc && g.drawKey === this.gtKey(cls, r) ? [sc.scrollLeft, sc.scrollTop] : null;
+    $('gt-wrap').innerHTML = gridTableHtml(m, { esc, today: this.today(), draftDate: overlay && this.s.dirty ? L.date : '' });
+    const ns = $('gt-scroll'); g.drawKey = this.gtKey(cls, r);
+    if (keep) { ns.scrollLeft = keep[0]; ns.scrollTop = keep[1]; } else ns.scrollLeft = ns.scrollWidth; // 首次顯示：捲到最新日期及總數
+    window.scrollTo(0, y);
+  },
+  gtClick(e) {
+    const t = e.target.closest('[data-s],[data-d]'); if (!t) return;
+    if (t.dataset.s) this.gtStu(t.dataset.s); else if (t.dataset.d) this.gtDay(t.dataset.d);
+  },
+  exitTbl() { if (this.vw === 'tbl') this.vw = this.vwPrev === 'list' || this.vwPrev === 'grid' ? this.vwPrev : (window.innerWidth < 1024 ? 'grid' : 'list'); },
+  gtDay(d) { // 撳日期格仔／日期標題：用現有 openSession 開啟該日點名
+    const L = this.s.loaded; if (!L) return;
+    this.exitTbl();
+    if (L.date === d) { this.render(); window.scrollTo(0, 0); } else this.openSession(d, L.cls);
+  },
+  gtStu(id) { // 撳姓名：沿用現有學生詳細資料畫面（底部面板）
+    const i = this.s.students.findIndex(x => x.StudentID === id);
+    if (i < 0) return this.toast('找不到該學生，請重新載入名單', 'warn');
+    this.openSheet(i);
+  },
+  gtCsv() {
+    const m = this.gt.model, r = this.gt.range;
+    if (!m || !m.dates.length) return alert('目前沒有可匯出的總表資料（請先選擇有點名紀錄的班別及日期範圍）');
+    this.download('FRCSS_Class_Grid_' + this.gt.cls + '_' + r.from + '_' + r.to + '.csv', gridCsv(m, v => this.csvCell(v)));
   },
   openSheet(i) { this.s.sheetI = i; $('sheet').classList.remove('hidden'); this.sheetRender(); },
   closeSheet() { this.s.sheetI = null; $('sheet').classList.add('hidden'); },
@@ -799,7 +995,7 @@ const app = {
     const t0 = performance.now();
     try {
       const r = await this.api('saveAttendance', { requestId: this.s.req.id, sessionData: { classCode: cls, date, group: g, mode: upd ? 'update' : 'full', studentIds: snap.map(x => x.id) }, records }, { silent: true });
-      this.s.req = null;
+      this.s.req = null; this.gtDrop(cls); // 提交成功：作廢該班總表快取
       if (this.s.loaded === L0) { // 上傳期間若已切換班別／日期，就不要動新載入的資料
         this.s.origNorm = this.s.origNorm || {}; this.s.raw = this.s.raw || {};
         snap.forEach(x => { this.s.origNorm[x.id] = x.st; this.s.raw[x.id] = x.st; }); // 只標記「已提交」那一刻的狀態
@@ -812,7 +1008,7 @@ const app = {
       try { navigator.vibrate && navigator.vibrate(30); } catch (_) {}
       this.toast('✅ ' + r.message + (!upd && g !== 'all' ? '　如另一組亦要點名，請切換「顯示」後再提交。' : ''), 'ok', g !== 'all' && !upd ? 5000 : 3200);
     } catch (e) {
-      this.dropDay(cls + '|' + date); // 失敗（例如已被另一位老師更改）→ 作廢快取，下次載入取最新
+      this.dropDay(cls + '|' + date); this.gtDrop(cls); // 失敗（例如已被另一位老師更改）→ 作廢快取，下次載入取最新
       this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render(); // 失敗：保留所有修改，可重新提交
       alert('❌ 提交失敗，資料未確認儲存（修改已保留，可再按提交）：\n' + e.message);
     }
@@ -824,7 +1020,7 @@ const app = {
     if (!confirm(`⚠️ 清除 ${L.cls}（${L.date}）【${label}】已儲存的點名紀錄？\n清除後可重新點名；被清除的紀錄會備份到「Deleted_Log」工作表。\n（畫面上未提交的修改也會被重置）`)) return;
     try {
       const r = await this.api('clearSession', { classCode: L.cls, date: L.date, group: g });
-      this.s.dirty = false; this.dropDay(L.cls + '|' + L.date); await this.loadList(true);
+      this.s.dirty = false; this.dropDay(L.cls + '|' + L.date); this.gtDrop(L.cls); await this.loadList(true);
       this.toast('✅ ' + r.message, 'ok');
     } catch (e) { alert('❌ 清除失敗：\n' + e.message); }
   },
