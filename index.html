@@ -326,7 +326,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.10.2'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.10.3'; // 須與 Code.gs 的 VERSION 一致
 const UI_BUILD = 'ux5'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
@@ -902,7 +902,7 @@ const app = {
     if (i < 0) return this.toast('找不到該學生，請重新載入名單', 'warn');
     this.openSheet(i);
   },
-  // ----- 總表直接點名（v2.10.2） -----
+  // ----- 總表直接點名（v2.10.3） -----
   gtCell(sid, d) {
     const L = this.s.loaded, g = this.gt; if (!L || g.saving || this.s.busy) return;
     if (d === L.date) { // 目前載入的日期：沿用草稿流程（現有底部選單），按「提交」才儲存
