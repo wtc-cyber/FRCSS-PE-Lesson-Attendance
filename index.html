@@ -78,6 +78,7 @@
       <button data-nav="attendance" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
       <button data-nav="history" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
       <button data-nav="summary" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
+      <button id="nav-score" data-nav="score" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('score')">體育評分</button>
       <button id="nav-students" data-nav="students" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
       <button class="px-3 py-2 rounded bg-red-700" onclick="app.logout()">登出</button>
     </div>
@@ -228,10 +229,43 @@
         <thead class="bg-gray-100"><tr><th class="p-3">日期</th><th class="p-3">班別</th><th class="p-3">學號</th><th class="p-3">姓名</th><th class="p-3">社</th><th class="p-3">狀態</th></tr></thead>
         <tbody id="h-body"></tbody></table></div>
     </section>
+    <!-- 體育科評分（管理員） -->
+    <section id="sec-score" class="hidden">
+      <h2 class="text-xl font-bold mb-4 border-b pb-2">體育科評分（出席／態度）</h2>
+      <details class="card" open><summary class="font-bold cursor-pointer py-1">評分設定（可自行調整；按「儲存設定」後同步到所有裝置）</summary>
+        <p id="sc-note" class="hidden text-sm text-amber-700 mt-2"></p>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3 items-end">
+          <div><label class="lbl">學年（標籤）</label><input id="sc-year" class="inp" maxlength="20" placeholder="2026-2027"></div>
+          <div><label class="lbl">上學期 由</label><input type="date" id="sc-s1f" class="inp"></div>
+          <div><label class="lbl">上學期 至</label><input type="date" id="sc-s1t" class="inp"></div>
+          <div><label class="lbl">下學期 由</label><input type="date" id="sc-s2f" class="inp"></div>
+          <div><label class="lbl">下學期 至</label><input type="date" id="sc-s2t" class="inp"></div>
+        </div>
+        <label class="text-sm block mt-3"><input type="checkbox" id="sc-sick" onchange="app.scRender()"> 「其他: 病假」亦當缺席扣分（預設只計「缺席」）</label>
+        <div class="overflow-x-auto mt-3"><table id="sc-rules" class="w-full text-sm"></table></div>
+        <p class="text-xs text-gray-500 mt-2">出席分＝出席滿分 − 缺席堂數 × 每堂扣分；態度分＝滿分 × 基本分% − 冇帶衫次數 × 每次扣分；兩者最低 0 分。初中按上、下學期日期分開計；高中由上學期開始日至下學期結束日全年計；中六只計上學期。改動分數規則會即時重算；改動日期後請按「計算」重新載入。</p>
+        <div class="flex flex-wrap gap-2 mt-3"><button class="btn bg-blue-600" onclick="app.scSave()">儲存設定</button><button class="btn bg-gray-500" onclick="app.scReset()">還原預設值</button></div>
+      </details>
+      <div class="card grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+        <div><label class="lbl">班別</label><select id="sc-class" class="inp" onchange="app.scRender()"></select></div>
+        <div><label class="lbl">級別</label><select id="sc-lv" class="inp" onchange="app.scRender()"><option value="">全部</option><option>初中</option><option>高中</option><option>中六</option></select></div>
+        <label class="text-sm"><input type="checkbox" id="sc-flag" onchange="app.scRender()"> 只顯示有扣分的學生</label>
+        <button class="btn bg-blue-600" onclick="app.scLoad()">計算</button>
+        <button class="btn bg-green-600" onclick="app.scExport()">下載 CSV</button>
+      </div>
+      <details class="card"><summary class="font-bold cursor-pointer py-1">欄位順序／顯示設定</summary><div id="sc-cols" class="mt-2"></div></details>
+      <div id="sc-info" class="text-sm text-gray-600 mb-2"></div>
+      <div class="bg-white rounded shadow overflow-x-auto"><table class="w-full text-left text-sm">
+        <thead class="bg-gray-100" id="sc-head"></thead>
+        <tbody id="sc-body"><tr><td class="p-4 text-center text-gray-500">請按「計算」</td></tr></tbody></table></div>
+      <p class="text-xs text-gray-500 mt-2">點擊表頭可排序；點擊學生可展開缺席、冇帶衫日期。「–」＝該級別不適用。個別學生的公假、醫生證明、其他態度扣分，請下載 CSV 後再自行調整。</p>
+    </section>
+
     <!-- 學生統計 -->
     <section id="sec-summary" class="hidden">
       <h2 class="text-xl font-bold mb-4 border-b pb-2">學生統計（缺席／冇帶衫等）</h2>
-      <div class="card grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+      <div class="card grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+        <div><label class="lbl">學期（按評分設定）</label><select id="s-sem" class="inp" onchange="app.semPick()"><option value="">自訂日期</option><option value="Y">全年</option><option value="1">上學期</option><option value="2">下學期</option></select></div>
         <div><label class="lbl">由</label><input type="date" id="s-from" class="inp"></div>
         <div><label class="lbl">至</label><input type="date" id="s-to" class="inp"></div>
         <div><label class="lbl">班別</label><select id="s-class" class="inp"></select></div>
@@ -269,7 +303,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.9.0'; // 須與 Code.gs 的 VERSION 一致
+const APP_VERSION = '2.10.0'; // 須與 Code.gs 的 VERSION 一致
 const UI_BUILD = 'ux2'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
@@ -280,7 +314,16 @@ const CLASSES = []; '123456'.split('').forEach(f => 'ABCDE'.split('').forEach(c 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+const SC_RULES = [['J1', '初中 上學期（中一至三）'], ['J2', '初中 下學期（中一至三）'], ['S', '高中 全年（中四、五）'], ['F6', '中六（只計上學期）']];
+const SC_F = [['attFull', '出席滿分'], ['absPer', '缺席每堂扣'], ['atFull', '態度滿分'], ['basePct', '態度基本分 %'], ['uniPer', '冇帶衫每次扣']];
+const SCDEF = [['Class', '班別'], ['StudentNo', '學號'], ['ChiName', '姓名'], ['House', '社'], ['Lv', '級別'],
+  ['a1', '上學期缺席'], ['u1', '上學期冇帶衫'], ['p1', '上學期出席分'], ['t1', '上學期態度分'],
+  ['a2', '下學期缺席'], ['u2', '下學期冇帶衫'], ['p2', '下學期出席分'], ['t2', '下學期態度分'],
+  ['aY', '全年缺席'], ['uY', '全年冇帶衫'], ['pY', '全年出席分'], ['tY', '全年態度分']];
+const SC_BASE = ['Class', 'StudentNo', 'ChiName', 'House', 'Lv'];
+const SC_RULE_DEF = { J1: { attFull: 15, absPer: 1, atFull: 15, basePct: 70, uniPer: 1 }, J2: { attFull: 10, absPer: 0.5, atFull: 10, basePct: 70, uniPer: 0.5 }, S: { attFull: 10, absPer: 0.5, atFull: 10, basePct: 70, uniPer: 0.5 }, F6: { attFull: 20, absPer: 1, atFull: 20, basePct: 70, uniPer: 1 } };
 const app = {
+  sc: { cfg: null, data: null, key: '', saved: false },
   s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false },
   dbPromise: null, studentSyncing: false,
   dayCache: {}, dropAt: {}, bundleAt: 0, bundleBusy: false, bgChecking: false, toastTimer: null, draftTimer: null,
@@ -353,7 +396,7 @@ const app = {
     const t0 = new Date(), y0 = t0.getMonth() >= 8 ? t0.getFullYear() : t0.getFullYear() - 1;
     $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部'); this.colPanel();
     $('ex-class').innerHTML = opts('全部班別'); $('ex-from').value = y0 + '-09-01'; $('ex-to').value = this.today();
-    $('ds-class').innerHTML = opts('選擇班別');
+    $('ds-class').innerHTML = opts('選擇班別'); $('sc-class').innerHTML = opts('全部');
     $('ui-build').textContent = 'v' + APP_VERSION + ' · ' + UI_BUILD;
     let v = null; try { v = localStorage.getItem('pe_view'); } catch (_) {}
     this.vw = (v === 'grid' || v === 'list') ? v : (window.innerWidth < 1024 ? 'grid' : 'list'); // 手機／平板預設格仔，電腦預設列表
@@ -364,7 +407,8 @@ const app = {
     this.s.role = u.role; $('who').textContent = '（' + u.email + '）';
     const vw = $('ver-warn');
     if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
-    $('nav-students').classList.toggle('hidden', u.role !== 'admin');
+    $('nav-students').classList.toggle('hidden', u.role !== 'admin'); $('nav-score').classList.toggle('hidden', u.role !== 'admin');
+    this.scLoadCfg();
     $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
     this.syncStudentCache(false); // 不阻礙登入及前台操作，背景檢查學生名單版本
     this.purgeDrafts();
@@ -397,12 +441,13 @@ const app = {
     try { localStorage.removeItem('pe_tk'); } catch (_) {}
     this.persistDraft(); // 登出前先保留未提交草稿（只在當日有效）
     this.dayCache = {}; this.dropAt = {}; this.bundleAt = 0; $('upd-banner').classList.add('hidden'); $('bg-status').classList.add('hidden');
-    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false };
+    this.s = { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false }; this.sc = { cfg: null, data: null, key: '', saved: false };
     $('main').classList.add('hidden'); $('login').classList.remove('hidden'); $('login-msg').textContent = msg || '';
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
   },
   nav(n) {
-    ['attendance', 'students', 'history', 'summary'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
+    ['attendance', 'students', 'history', 'summary', 'score'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
+    if (n === 'score') this.scOpen();
     document.querySelectorAll('[data-nav]').forEach(b => { const on = b.dataset.nav === n; b.classList.toggle('!bg-white', on); b.classList.toggle('!text-blue-900', on); b.classList.toggle('font-bold', on); });
   },
   // ----- Toast -----
@@ -903,6 +948,151 @@ const app = {
     const val = (key, r) => (key === 'rate' || key === 'prate') ? (r[key] * 100).toFixed(0) + '%' : key === 'House' ? this.houseLbl(r.House) : r[key];
     const rows = v.map(r => cols.map(key => val(key, r)).concat([r.d.abs.join(' '), r.d.uni.join(' '), r.d.oth.join(' ')]).map(x => this.csvCell(x)).join(','));
     this.download('FRCSS_Student_Summary_' + this.today() + '.csv', cols.map(key => lab[key]).concat(['缺席日期', '冇帶衫日期', '其他日期']).join(',') + '\n' + rows.join('\n'));
+  },
+
+  // ----- 體育科評分（出席／態度） -----
+  scDefault() {
+    const t = new Date(), y = t.getMonth() >= 8 ? t.getFullYear() : t.getFullYear() - 1;
+    return { year: y + '-' + (y + 1), s1: { from: y + '-09-01', to: (y + 1) + '-01-31' }, s2: { from: (y + 1) + '-02-01', to: (y + 1) + '-08-31' }, sick: false, rules: JSON.parse(JSON.stringify(SC_RULE_DEF)), cols: { order: SCDEF.map(x => x[0]), hidden: [] } };
+  },
+  scNorm(c) {
+    const o = this.scDefault(), re = /^\d{4}-\d{2}-\d{2}$/;
+    if (!c || typeof c !== 'object') return o;
+    if (c.year) o.year = String(c.year).slice(0, 20);
+    ['s1', 's2'].forEach(k => { if (c[k]) { if (re.test(c[k].from || '')) o[k].from = c[k].from; if (re.test(c[k].to || '')) o[k].to = c[k].to; } });
+    o.sick = c.sick === true;
+    SC_RULES.forEach(([k]) => SC_F.forEach(([f]) => { const raw = c.rules && c.rules[k] ? c.rules[k][f] : undefined; if (raw !== undefined && raw !== '' && isFinite(Number(raw)) && Number(raw) >= 0) o.rules[k][f] = Number(raw); }));
+    if (c.cols && Array.isArray(c.cols.order)) {
+      const all = SCDEF.map(x => x[0]), ord = c.cols.order.filter(k => all.includes(k));
+      all.forEach(k => { if (!ord.includes(k)) ord.push(k); });
+      o.cols = { order: ord, hidden: (c.cols.hidden || []).filter(k => all.includes(k)) };
+    }
+    return o;
+  },
+  async scLoadCfg() {
+    try { const r = await this.api('getScoreConfig', {}, { silent: true }); this.sc.cfg = this.scNorm(r && r.config); this.sc.saved = !!(r && r.config); }
+    catch (e) { console.warn('[SCORE] 讀取評分設定失敗：', e.message); if (!this.sc.cfg) this.sc.cfg = this.scNorm(null); }
+  },
+  async scOpen() {
+    if (!this.sc.cfg) await this.scLoadCfg();
+    this.scFill(); if (this.sc.data) this.scRender();
+  },
+  scFill() {
+    const c = this.sc.cfg;
+    $('sc-year').value = c.year; $('sc-s1f').value = c.s1.from; $('sc-s1t').value = c.s1.to; $('sc-s2f').value = c.s2.from; $('sc-s2t').value = c.s2.to; $('sc-sick').checked = !!c.sick;
+    $('sc-note').textContent = this.sc.saved ? '' : '⚠ 尚未儲存過評分設定，現時顯示預設值（日期只是預設，請按實際校曆修改並儲存）。';
+    $('sc-note').classList.toggle('hidden', this.sc.saved);
+    $('sc-rules').innerHTML = '<thead class="bg-gray-100"><tr><th class="p-2 text-left">級別／學期</th>' + SC_F.map(f => `<th class="p-2 text-left whitespace-nowrap">${f[1]}</th>`).join('') + '<th class="p-2 text-left whitespace-nowrap">態度基本分</th></tr></thead><tbody>' +
+      SC_RULES.map(([k, n]) => `<tr class="border-b"><td class="p-2 font-bold whitespace-nowrap">${n}</td>` + SC_F.map(([f]) => `<td class="p-1"><input type="number" step="0.5" min="0" id="sc-r-${k}-${f}" class="inp !p-1 w-24" value="${c.rules[k][f]}" oninput="app.scRender()"></td>`).join('') + `<td class="p-2 text-gray-600" id="sc-base-${k}"></td></tr>`).join('') + '</tbody>';
+    this.scColPanel(); this.scBase();
+  },
+  scBase() { const c = this.scCur(); SC_RULES.forEach(([k]) => { const e = $('sc-base-' + k); if (e) e.textContent = (Math.round(c.rules[k].atFull * c.rules[k].basePct) / 100) + ' 分'; }); },
+  scRead() {
+    const c = this.scNorm(null), re = /^\d{4}-\d{2}-\d{2}$/;
+    c.year = $('sc-year').value.trim().slice(0, 20);
+    [['s1', '上學期'], ['s2', '下學期']].forEach(([k, n]) => {
+      const f = $('sc-' + k + 'f').value, t = $('sc-' + k + 't').value;
+      if (!re.test(f) || !re.test(t)) throw new Error('請填寫' + n + '的起迄日期');
+      if (f > t) throw new Error(n + '的開始日期不可遲於結束日期');
+      c[k] = { from: f, to: t };
+    });
+    if (c.s1.to >= c.s2.from) throw new Error('上學期結束日須早於下學期開始日');
+    c.sick = $('sc-sick').checked;
+    SC_RULES.forEach(([k, n]) => SC_F.forEach(([f, fn]) => {
+      const v = $('sc-r-' + k + '-' + f).value;
+      if (v === '' || !isFinite(Number(v)) || Number(v) < 0) throw new Error('「' + n + '」的「' + fn + '」必須為 0 或以上的數字');
+      c.rules[k][f] = Number(v);
+    }));
+    SC_RULES.forEach(([k, n]) => { if (c.rules[k].basePct > 100) throw new Error('「' + n + '」的態度基本分 % 不可超過 100'); });
+    c.cols = this.sc.cfg ? this.sc.cfg.cols : c.cols;
+    return c;
+  },
+  scCur() { try { return this.scRead(); } catch (e) { return this.sc.cfg || this.scNorm(null); } },
+  async scSave() {
+    let c; try { c = this.scRead(); } catch (e) { return alert(e.message); }
+    try { await this.api('saveScoreConfig', { config: c }); this.sc.cfg = c; this.sc.saved = true; this.scFill(); this.toast('✅ 評分設定已儲存', 'ok'); this.scRender(); }
+    catch (e) { alert('儲存失敗：' + e.message); }
+  },
+  scReset() {
+    if (!confirm('還原所有評分規則、日期及欄位為預設值？（按「儲存設定」後才會覆蓋已儲存的設定）')) return;
+    this.sc.cfg = this.scNorm(null); this.scFill(); this.scRender(); this.toast('已還原預設值，尚未儲存', 'warn');
+  },
+  async scLoad() {
+    let c; try { c = this.scRead(); } catch (e) { return alert(e.message); }
+    try { this.sc.data = await this.api('getScoreData', { from: c.s1.from, to: c.s2.to }); this.sc.key = c.s1.from + '|' + c.s2.to; this.sc.cfg = c; this.scRender(); }
+    catch (e) { alert('錯誤：' + e.message); }
+  },
+  scCalc(r, c) {
+    const lv = parseInt(String(r.Class).charAt(0), 10), rnd = x => Math.round(x * 100) / 100;
+    const A = r.a.concat(c.sick ? r.k : []), inR = (d, a, b) => d >= a && d <= b, cnt = (arr, a, b) => arr.filter(d => inR(d, a, b)).length;
+    const o = { Class: r.Class, StudentNo: r.StudentNo, ChiName: r.ChiName, House: r.House, Lv: '' }, rg = [];
+    const per = (sfx, a, b, R) => {
+      const ab = cnt(A, a, b), un = cnt(r.u, a, b);
+      o['a' + sfx] = ab; o['u' + sfx] = un; o['p' + sfx] = rnd(Math.max(0, R.attFull - ab * R.absPer)); o['t' + sfx] = rnd(Math.max(0, R.atFull * R.basePct / 100 - un * R.uniPer)); rg.push([a, b]);
+    };
+    if (lv >= 1 && lv <= 3) { o.Lv = '初中'; per('1', c.s1.from, c.s1.to, c.rules.J1); per('2', c.s2.from, c.s2.to, c.rules.J2); }
+    else if (lv === 4 || lv === 5) { o.Lv = '高中'; per('Y', c.s1.from, c.s2.to, c.rules.S); }
+    else if (lv === 6) { o.Lv = '中六'; per('1', c.s1.from, c.s1.to, c.rules.F6); }
+    const inAny = d => rg.some(x => inR(d, x[0], x[1]));
+    o.dA = r.a.filter(inAny).sort(); o.dU = r.u.filter(inAny).sort(); o.dK = r.k.filter(inAny).sort(); o.sick = c.sick;
+    o.ded = ['a1', 'u1', 'a2', 'u2', 'aY', 'uY'].some(k => o[k] > 0) || (c.sick && o.dK.length > 0);
+    return o;
+  },
+  scRows() {
+    const c = this.scCur(), cls = $('sc-class').value, lv = $('sc-lv').value, only = $('sc-flag').checked;
+    let rows = (this.sc.data || []).filter(r => !cls || String(r.Class).toUpperCase() === cls).map(r => this.scCalc(r, c));
+    if (lv) rows = rows.filter(r => r.Lv === lv);
+    if (only) rows = rows.filter(r => r.ded);
+    const k = this.sc.sortK || 'Class', dir = this.sc.sortD || 1;
+    rows.sort((x, y) => {
+      const a = x[k], b = y[k]; let r = 0;
+      if (a === undefined && b === undefined) r = 0; else if (a === undefined) return 1; else if (b === undefined) return -1;
+      else r = (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'zh-HK', { numeric: true });
+      return r ? r * dir : String(x.Class).localeCompare(String(y.Class)) || (parseInt(x.StudentNo) || 0) - (parseInt(y.StudentNo) || 0);
+    });
+    return { rows, c, cols: this.scVis(rows) };
+  },
+  scVis(rows) {
+    const cc = (this.sc.cfg || this.scNorm(null)).cols;
+    return cc.order.filter(k => !cc.hidden.includes(k) && (SC_BASE.includes(k) || rows.some(r => r[k] !== undefined)));
+  },
+  scVal(k, r, blank) { const v = r[k]; return v === undefined ? (blank ? '' : '–') : k === 'House' ? this.houseLbl(v) : v; },
+  scSort(k) { if (this.sc.sortK === k) this.sc.sortD = -(this.sc.sortD || 1); else { this.sc.sortK = k; this.sc.sortD = 1; } this.scRender(); },
+  scRender() {
+    if (!this.sc.cfg) return;
+    this.scBase();
+    if (!this.sc.data) return;
+    const { rows, c, cols } = this.scRows(), lab = Object.fromEntries(SCDEF), k = this.sc.sortK || 'Class', dir = this.sc.sortD || 1;
+    $('sc-head').innerHTML = '<tr>' + cols.map(key => `<th class="p-3 cursor-pointer whitespace-nowrap select-none" onclick="app.scSort('${key}')">${lab[key]}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('') + '</tr>';
+    const stale = (c.s1.from + '|' + c.s2.to) !== this.sc.key;
+    $('sc-info').innerHTML = `共 ${rows.length} 人｜上學期 ${esc(c.s1.from)} 至 ${esc(c.s1.to)}；下學期 ${esc(c.s2.from)} 至 ${esc(c.s2.to)}` + (c.sick ? '｜病假已當缺席' : '｜只計「缺席」') + (stale ? '<span class="text-red-600 font-bold">｜⚠ 日期已更改，請按「計算」重新載入</span>' : '');
+    const dl = (t, a) => a.length ? `<div><b>${t}（${a.length}）：</b>${esc(a.join('、'))}</div>` : '';
+    $('sc-body').innerHTML = rows.length ? rows.map((r, i) => {
+      const td = key => { const hi = /^[pt]/.test(key) && key.length === 2 ? 'font-bold' : key === 'ChiName' ? 'font-bold' : ''; return `<td class="p-2 ${hi}">${esc(this.scVal(key, r))}</td>`; };
+      return `<tr class="border-b cursor-pointer hover:bg-gray-50" onclick="document.getElementById('scd-${i}').classList.toggle('hidden')">${cols.map(td).join('')}</tr>` +
+        `<tr id="scd-${i}" class="hidden bg-gray-50"><td colspan="${cols.length}" class="p-3 text-xs leading-6">${(dl('缺席', r.dA) + dl('冇帶衫', r.dU) + dl(r.sick ? '病假（已計入缺席）' : '病假（不扣分）', r.dK)) || '沒有扣分紀錄'}</td></tr>`;
+    }).join('') : `<tr><td colspan="${Math.max(cols.length, 1)}" class="p-4 text-center text-gray-500">沒有資料</td></tr>`;
+  },
+  scExport() {
+    if (!this.sc.data) return alert('請先按「計算」後再下載！');
+    const { rows, c, cols } = this.scRows(), lab = Object.fromEntries(SCDEF);
+    if (!rows.length) return alert('沒有可下載的資料');
+    const body = rows.map(r => cols.map(k => this.scVal(k, r, true)).concat([r.dA.join(' '), r.dU.join(' '), r.dK.join(' ')]).map(x => this.csvCell(x)).join(','));
+    this.download('FRCSS_PE_Score_' + (c.year || 'year') + '_' + this.today() + '.csv', cols.map(k => lab[k]).concat(['缺席日期', '冇帶衫日期', '病假日期' + (c.sick ? '（已計扣分）' : '（不扣分）')]).join(',') + '\n' + body.join('\n'));
+  },
+  scColPanel() {
+    const cc = this.sc.cfg.cols, lab = Object.fromEntries(SCDEF);
+    $('sc-cols').innerHTML = cc.order.map(k => `<div class="flex items-center gap-2 py-1"><label class="flex-1 flex items-center gap-2 text-base"><input type="checkbox" class="w-5 h-5" ${cc.hidden.includes(k) ? '' : 'checked'} onchange="app.scTog('${k}')">${lab[k]}</label><button class="gb" onclick="app.scMove('${k}',-1)">▲</button><button class="gb" onclick="app.scMove('${k}',1)">▼</button></div>`).join('') +
+      '<button class="gb mt-2" onclick="app.scResetCols()">還原預設欄位</button><p class="text-xs text-gray-500 mt-1">整欄都不適用的欄位（例如只睇高中時的「上學期」）會自動隱藏。欄位設定按「儲存設定」後同步到所有裝置。</p>';
+  },
+  scMove(k, d) { const o = this.sc.cfg.cols.order, i = o.indexOf(k), j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; this.scColPanel(); this.scRender(); },
+  scTog(k) { const h = this.sc.cfg.cols.hidden, i = h.indexOf(k); if (i > -1) h.splice(i, 1); else if (this.sc.cfg.cols.order.length - h.length > 1) h.push(k); else alert('至少要顯示一欄'); this.scColPanel(); this.scRender(); },
+  scResetCols() { this.sc.cfg.cols = { order: SCDEF.map(x => x[0]), hidden: [] }; this.scColPanel(); this.scRender(); },
+  semPick() {
+    const v = $('s-sem').value; if (!v) return;
+    const c = this.sc.cfg || this.scNorm(null), r = v === '1' ? [c.s1.from, c.s1.to] : v === '2' ? [c.s2.from, c.s2.to] : [c.s1.from, c.s2.to];
+    $('s-from').value = r[0]; $('s-to').value = r[1];
+    if (!this.sc.saved) this.toast('學期日期尚未儲存（暫用預設），請到「體育評分」設定', 'warn', 4200);
   },
 
   // ----- 學生管理 -----
