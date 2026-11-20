@@ -327,7 +327,7 @@
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
 const APP_VERSION = '2.10.2'; // 須與 Code.gs 的 VERSION 一致
-const UI_BUILD = 'ux4'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const UI_BUILD = 'ux5'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
@@ -376,7 +376,7 @@ function gridRange(mode, cfg, today, custom) { // 今學期／全年／自訂 �
   if (mode === 'year') return { from: s1.from, to: s2.to };
   return today <= s1.to ? { from: s1.from, to: s1.to } : { from: s2.from, to: s2.to };
 }
-// data＝後端 getClassGrid 回傳；o.overlay＝{ date, cells:{StudentID: 狀態字串} } 即時草稿；o.ids＝只顯示的學生
+// data＝後端 getClassGrid 回傳；o.overlay＝{ date, cells:{StudentID: 狀態字串} } 即時草稿；o.ids＝只顯示的學生；o.show＝即使未有紀錄也要顯示的日期（例如今日、目前載入日期）
 function gridModel(data, o) {
   o = o || {};
   const from = o.from || '0000-00-00', to = o.to || '9999-99-99', ov = o.overlay || null, sts = (data && data.sts) || [], dts = (data && data.dates) || [];
@@ -392,7 +392,8 @@ function gridModel(data, o) {
     if (v === '') delete per[i][ov.date]; else per[i][ov.date] = String(v);
   });
   const set = {}; per.forEach(m => Object.keys(m).forEach(d => { set[d] = 1; }));
-  const dates = Object.keys(set).sort(); // 只保留真正有紀錄的日期，由舊到新
+  (o.show || []).forEach(d => { if (/^\d{4}-\d{2}-\d{2}$/.test(d || '') && d >= from && d <= to) set[d] = 1; }); // 未點名的今日／載入日期也留一欄（空白格，可直接點名）
+  const dates = Object.keys(set).sort(); // 有紀錄的日期＋指定要顯示的日期，由舊到新
   const rows = studs.map((s, i) => {
     const cells = dates.map(d => gridCell(per[i][d]));
     return { id: s.id, no: s.no, name: s.name, cells: cells, abs: cells.reduce((n, c) => n + c.abs, 0), uni: cells.reduce((n, c) => n + c.uni, 0) };
@@ -873,9 +874,10 @@ const app = {
       this.s.students.forEach(st => { const a = this.s.att[st.StudentID]; if (a && (o[st.StudentID] !== undefined || this.s.dirty)) cells[st.StudentID] = this.statusOf(a); }); // 已儲存，或你已動過畫面＝顯示現時狀態；完全未點名則留空
       overlay = { date: L.date, cells };
     }
-    const m = gridModel(data, { from: r.from, to: r.to, ids: $('att-gender').value === 'all' ? null : ids, overlay });
+    const show = [], td = this.today(); if (L && L.cls === cls) show.push(L.date); if (!show.includes(td) && '一二三四五'.indexOf(gridWd(td)) >= 0) show.push(td); // 目前載入日期＋今日（平日）一定有欄
+    const m = gridModel(data, { from: r.from, to: r.to, ids: $('att-gender').value === 'all' ? null : ids, overlay, show });
     g.model = m; g.cls = cls; g.range = r;
-    $('gt-info').textContent = `${cls}｜${r.from} 至 ${r.to}｜${m.dates.length} 個點名日｜${m.rows.length} 人` + (overlay && this.s.dirty && m.dates.indexOf(L.date) >= 0 ? `｜${L.date} 含未提交草稿` : '');
+    $('gt-info').textContent = `${cls}｜${r.from} 至 ${r.to}｜${m.dates.filter((d, j) => m.rows.some(x => x.cells[j].k !== 'none')).length} 個點名日｜${m.rows.length} 人` + (overlay && this.s.dirty && m.dates.indexOf(L.date) >= 0 ? `｜${L.date} 含未提交草稿` : '');
     if (!m.rows.length) { this.gtMsg('找不到符合的學生'); return; }
     if (!m.dates.length) { this.gtMsg('此日期範圍內沒有點名紀錄'); return; }
     const sc = $('gt-scroll'), keep = sc && g.drawKey === this.gtKey(cls, r) ? [sc.scrollLeft, sc.scrollTop] : null;
