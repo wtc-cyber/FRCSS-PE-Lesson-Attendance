@@ -1,6 +1,6 @@
 // FRCSS PE 點名系統 Service Worker
 // 更新網頁後，請把 VERSION 改成新數字，用戶才會取得新版本
-const VERSION = 'v9'; // v2.10.3 前端：總表顯示未點名的今日欄
+const VERSION = 'v10'; // v2.11.0 前端：夾班設定／夾班點名表
 const CACHE = 'frcss-pe-' + VERSION;
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];

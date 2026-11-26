@@ -99,6 +99,7 @@
     <div class="font-bold text-xl">FRCSS PE <span id="who" class="text-xs font-normal opacity-80"></span></div>
     <div class="flex gap-2 text-sm md:text-base">
       <button data-nav="attendance" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
+      <button data-nav="combo" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('combo')">夾班設定</button>
       <button data-nav="history" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
       <button data-nav="summary" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
       <button id="nav-score" data-nav="score" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('score')">體育評分</button>
@@ -121,6 +122,7 @@
         <div><label class="lbl">顯示</label>
           <select id="att-gender" class="inp" onchange="app.setG(this.value)"><option value="all">全班</option><option value="M">男同學</option><option value="F">女同學</option></select></div>
         <div class="col-span-2 md:col-span-2"><button class="btn bg-blue-600 w-full text-lg" onclick="app.loadList(true)">重新載入</button></div>
+        <div id="combo-quick" class="hidden col-span-2 md:col-span-5"></div>
       </div>
       <div id="upd-banner" class="hidden mb-3 p-2 bg-orange-100 border border-orange-400 rounded text-sm text-orange-900 flex flex-wrap items-center gap-2" role="status">
         <span id="upd-text" class="flex-1">🔔 偵測到點名紀錄有更新</span>
@@ -146,6 +148,33 @@
       <div id="att-submit" class="hidden sticky bottom-3 z-10 text-right">
         <button id="submit-btn" class="btn bg-green-600 text-lg md:text-xl rounded-full px-8 py-4 w-full md:w-auto border-2 border-white" onclick="app.submit()">✅ 提交點名紀錄</button>
       </div>
+    </section>
+
+    <!-- 夾班設定 -->
+    <section id="sec-combo" class="hidden">
+      <h2 class="text-xl font-bold mb-4 border-b pb-2">夾班設定</h2>
+      <div class="card">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div><label class="lbl">學年</label><select id="cb-year" class="inp" onchange="app.cbYear(this.value)"></select></div>
+          <div class="col-span-2 text-sm" id="cb-active-note"></div>
+          <button id="cb-active-btn" class="btn bg-indigo-600 hidden" onclick="app.cbSetActive()">用於點名選單</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">每個學年可以有不同的夾班組合。「課堂點名」的班別選單只會顯示<b>使用中學年</b>的夾班；舊學年的設定會保留，可隨時切換或複製到新學年。</p>
+      </div>
+      <div class="card">
+        <h3 id="cb-form-title" class="font-bold mb-2">新增夾班</h3>
+        <div class="mb-3"><label class="lbl">夾班名稱（選填，例：中三 籃球組）</label><input id="cb-name" class="inp" maxlength="30" placeholder="留空＝自動用班別組合，例 3A+3B"></div>
+        <div class="lbl">揀選一起上堂的班別（最少 2 班）</div>
+        <div id="cb-grid" class="mb-2"></div>
+        <div id="cb-picked" class="text-sm text-gray-600 mb-3"></div>
+        <div class="flex gap-2"><button class="btn bg-blue-600" onclick="app.cbSaveItem()">💾 儲存夾班</button><button id="cb-cancel" class="btn bg-gray-500 hidden" onclick="app.cbCancel()">取消編輯</button></div>
+      </div>
+      <div class="card"><h3 class="font-bold mb-2" id="cb-list-title">已設定的夾班</h3><div id="cb-list"></div></div>
+      <details class="card"><summary class="font-bold cursor-pointer py-1">備份／搬到其他裝置</summary>
+        <p class="text-xs text-gray-500 my-2">夾班設定儲存在這部裝置的瀏覽器內。換機，或想同其他老師共用，可在這裡匯出設定碼，貼到另一部裝置匯入。</p>
+        <textarea id="cb-io" class="inp font-mono text-xs" rows="5" placeholder="按「匯出」會顯示設定碼；匯入時請貼上設定碼"></textarea>
+        <div class="flex gap-2 mt-2"><button class="btn bg-green-600" onclick="app.cbExport()">匯出</button><button class="btn bg-blue-600" onclick="app.cbImport()">匯入</button></div>
+      </details>
     </section>
 
     <!-- 學生管理（管理員） -->
@@ -326,8 +355,8 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.10.3'; // 須與 Code.gs 的 VERSION 一致
-const UI_BUILD = 'ux5'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const APP_VERSION = '2.10.2'; // 須與 Code.gs 的 VERSION 一致
+const UI_BUILD = 'ux6-combo'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
@@ -396,20 +425,20 @@ function gridModel(data, o) {
   const dates = Object.keys(set).sort(); // 有紀錄的日期＋指定要顯示的日期，由舊到新
   const rows = studs.map((s, i) => {
     const cells = dates.map(d => gridCell(per[i][d]));
-    return { id: s.id, no: s.no, name: s.name, cells: cells, abs: cells.reduce((n, c) => n + c.abs, 0), uni: cells.reduce((n, c) => n + c.uni, 0) };
+    return { id: s.id, no: s.no, lbl: s.lbl, ord: s.ord || 0, name: s.name, cells: cells, abs: cells.reduce((n, c) => n + c.abs, 0), uni: cells.reduce((n, c) => n + c.uni, 0) };
   });
-  rows.sort((a, b) => (parseInt(a.no, 10) || 0) - (parseInt(b.no, 10) || 0) || String(a.no).localeCompare(String(b.no)));
+  rows.sort((a, b) => (a.ord - b.ord) || (parseInt(a.no, 10) || 0) - (parseInt(b.no, 10) || 0) || String(a.no).localeCompare(String(b.no)));
   return { dates: dates, rows: rows };
 }
 function gridCsv(m, csvCell) { // 學生 × 日期；符號與畫面一致；最後兩欄＝缺席總數、冇帶衫總數
   const lines = [['學號', '姓名'].concat(m.dates, ['缺席總數', '冇帶衫總數']).map(csvCell).join(',')];
-  m.rows.forEach(r => lines.push([r.no, r.name].concat(r.cells.map(gridCellText), [r.abs, r.uni]).map(csvCell).join(',')));
+  m.rows.forEach(r => lines.push([r.lbl || r.no, r.name].concat(r.cells.map(gridCellText), [r.abs, r.uni]).map(csvCell).join(',')));
   return lines.join('\n');
 }
 function gridTableHtml(m, o) { // o: { esc, today, draftDate }
   const e = o.esc, badge = k => `<span class="gs gs-${k}">${GRID_SYM[k][0]}</span>`;
   const head = m.dates.map(d => `<th data-d="${e(d)}" class="${d === o.today ? 'gt-today' : ''}${d === o.draftDate ? ' gt-draft' : ''}" title="${e(d)}（撳一下開啟當日點名）"><div>${e(d.slice(5).replace('-', '/'))}</div><div class="gt-wd">${gridWd(d)}</div>${d === o.draftDate ? '<div class="gt-wd" style="font-size:9px">草稿</div>' : ''}</th>`).join('');
-  const body = m.rows.map(r => `<tr><th class="gt-c0" data-s="${e(r.id)}" scope="row" title="撳一下查看學生資料"><span class="gt-no">${e(r.no)}</span>${e(r.name)}</th>` +
+  const body = m.rows.map(r => `<tr><th class="gt-c0" data-s="${e(r.id)}" scope="row" title="撳一下查看學生資料"><span class="gt-no">${e(r.lbl || r.no)}</span>${e(r.name)}</th>` +
     r.cells.map((c, j) => `<td data-d="${e(m.dates[j])}" data-s="${e(r.id)}" class="gt-${c.k}"${c.raw && c.raw !== '出席' && c.raw !== '缺席' ? ` title="${e(c.raw)}"` : ''}>${c.k === 'none' ? '' : c.syms.map(badge).join('')}</td>`).join('') +
     `<td class="gt-t gt-tabs${r.abs ? ' on' : ''}">${r.abs}</td><td class="gt-t gt-tuni${r.uni ? ' on' : ''}">${r.uni}</td></tr>`).join('');
   return `<div class="gt-scroll" id="gt-scroll" onclick="app.gtClick(event)"><table class="gt"><thead><tr><th class="gt-c0">學號 姓名</th>${head}<th class="gt-t">缺席<br>總數</th><th class="gt-t">冇帶衫<br>總數</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -423,6 +452,22 @@ function gridPatch(data, date, sid, status) { // 儲存成功後就地更新本�
   if (j < 0 || !s) return false;
   let k = data.sts.indexOf(status); if (k < 0) { data.sts.push(status); k = data.sts.length - 1; }
   s.r[j] = k; return true;
+}
+function gridMerge(list) { // v2.11 夾班：list＝[{ cls, data }]（各班 getClassGrid 回傳）→ 合併成單一 data；學生加上 ord（班別次序）、cls、lbl（例 3A-05）
+  const sts = [], dset = {};
+  list.forEach(x => ((x.data && x.data.dates) || []).forEach(t => { dset[t] = 1; }));
+  const dates = Object.keys(dset).sort(), di = {}; dates.forEach((t, j) => { di[t] = j; });
+  const students = [];
+  list.forEach((x, n) => {
+    const d = x.data || {}, ds = d.dates || [], ss = d.sts || [];
+    const map = ss.map(v => { let k = sts.indexOf(v); if (k < 0) { sts.push(v); k = sts.length - 1; } return k; });
+    (d.students || []).forEach(st => {
+      const r = dates.map(() => -1);
+      ds.forEach((t, j) => { const v = st.r ? st.r[j] : undefined; if (typeof v === 'number' && v >= 0 && map[v] !== undefined) r[di[t]] = map[v]; });
+      students.push(Object.assign({}, st, { r: r, ord: n, cls: x.cls, lbl: x.cls + '-' + st.no }));
+    });
+  });
+  return { sts: sts, dates: dates, students: students };
 }
 /*GRID_CORE_END*/
 function gtNewState() { return { mode: 'term', from: '', to: '', cache: {}, gen: {}, loading: '', fresh: false, err: null, model: null, cls: '', range: null, drawKey: null, edit: null, saving: false }; }
@@ -440,6 +485,8 @@ const app = {
   gt: gtNewState(), vwPrev: 'grid',
   s: { token: '', role: '', students: [], att: {}, hist: [], busy: false, loaded: null, dirty: false, attendanceReady: false },
   dbPromise: null, studentSyncing: false,
+  cb: { v: 1, active: '', items: [] }, cbY: '', cbEdit: { id: '', classes: [] }, // v2.11 夾班設定
+
   dayCache: {}, dropAt: {}, bundleAt: 0, bundleBusy: false, bgChecking: false, toastTimer: null, draftTimer: null,
 
   // ----- IndexedDB：全校學生名單本機快取 -----
@@ -503,7 +550,7 @@ const app = {
   },
   init() {
     const opts = (first) => (first ? `<option value="">${first}</option>` : '') + CLASSES.map(c => `<option>${c}</option>`).join('');
-    $('att-class').innerHTML = opts('選擇班別'); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts(''); $('hi-class').innerHTML = opts('選擇班別');
+    this.cbLoad(); this.fillAttClass(); $('h-class').innerHTML = opts('全部'); $('rs-class').innerHTML = opts(''); $('hi-class').innerHTML = opts('選擇班別');
     const t1 = new Date(); $('hi-year').value = t1.getMonth() >= 8 ? t1.getFullYear() : t1.getFullYear() - 1;
     $('att-date').value = this.today(); $('h-to').value = this.today();
     const d0 = new Date(Date.now() - 30 * 864e5); $('h-from').value = new Date(d0 - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -560,8 +607,9 @@ const app = {
     $('att-list').innerHTML = ''; ['att-stats', 'att-submit', 'att-note'].forEach(i => $(i).classList.add('hidden')); this.closeSheet();
   },
   nav(n) {
-    ['attendance', 'students', 'history', 'summary', 'score'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
+    ['attendance', 'combo', 'students', 'history', 'summary', 'score'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
     if (n === 'score') this.scOpen();
+    if (n === 'combo') this.cbRender();
     document.querySelectorAll('[data-nav]').forEach(b => { const on = b.dataset.nav === n; b.classList.toggle('!bg-white', on); b.classList.toggle('!text-blue-900', on); b.classList.toggle('font-bold', on); });
   },
   // ----- Toast -----
@@ -590,6 +638,164 @@ const app = {
     } finally { clearTimeout(t); if (!opt.silent) $('busy').classList.add('hidden'); }
   },
 
+  // ===== v2.11 夾班：設定（存在本機 localStorage）＋ 合併載入／分班提交；後端 Code.gs 不需改動 =====
+  isCombo(v) { return String(v || '').indexOf('combo:') === 0; },
+  comboGet(v) { return this.isCombo(v) ? (this.cb.items.find(x => 'combo:' + x.id === v) || null) : null; },
+  classesOf(v) { if (!this.isCombo(v)) return v ? [v] : []; const c = this.comboGet(v); return c ? c.classes.slice() : []; },
+  clsLabel(v) { if (!this.isCombo(v)) return v; const c = this.comboGet(v); if (!c) return '（已刪除的夾班）'; const j = c.classes.join('+'); return '🔗 ' + (c.name ? c.name + '（' + j + '）' : j); },
+  realCls(s, v) { if (!this.isCombo(v)) return v; const k = String(s.Class || '').toUpperCase(); return this.classesOf(v).find(c => c.toUpperCase() === k) || String(s.Class || ''); },
+  inCombo() { const L = this.s.loaded; return !!(L && this.isCombo(L.cls)); },
+  noLbl(s) { return this.inCombo() ? String(s.Class || '') + '-' + s.StudentNo : s.StudentNo; },
+  stuSort(arr, v) { // 夾班：先按設定的班別次序，再按學號
+    const cs = this.classesOf(v).map(c => c.toUpperCase()), rk = s => { const i = cs.indexOf(String(s.Class || '').toUpperCase()); return i < 0 ? 0 : i; };
+    return arr.slice().sort((a, b) => rk(a) - rk(b) || parseInt(a.StudentNo) - parseInt(b.StudentNo));
+  },
+  acadYear() { const t = this.today(), y = Number(t.slice(0, 4)), y0 = Number(t.slice(5, 7)) >= 9 ? y : y - 1; return y0 + '-' + (y0 + 1); },
+  cbActive() { return this.cb.active || this.acadYear(); },
+  cbNorm(raw) {
+    const o = { v: 1, active: '', items: [] }, yr = /^\d{4}-\d{4}$/, seen = {};
+    if (!raw || typeof raw !== 'object') return o;
+    if (yr.test(String(raw.active || ''))) o.active = raw.active;
+    (Array.isArray(raw.items) ? raw.items : []).forEach(x => {
+      if (!x || typeof x !== 'object' || !yr.test(String(x.year || ''))) return;
+      const cs = Array.from(new Set((Array.isArray(x.classes) ? x.classes : []).map(c => String(c).toUpperCase()).filter(c => CLASSES.includes(c)))).sort((a, b) => CLASSES.indexOf(a) - CLASSES.indexOf(b));
+      if (cs.length < 2) return;
+      let id = String(x.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 20); if (!id || seen[id]) id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      seen[id] = 1; o.items.push({ id, year: x.year, name: String(x.name || '').trim().slice(0, 30), classes: cs });
+    });
+    return o;
+  },
+  cbLoad() { try { this.cb = this.cbNorm(JSON.parse(localStorage.getItem('pe_combos_v1') || 'null')); } catch (_) { this.cb = this.cbNorm(null); } },
+  cbPersist() { try { localStorage.setItem('pe_combos_v1', JSON.stringify(this.cb)); return true; } catch (_) { this.toast('⚠️ 這個瀏覽器不能儲存設定（可能是私隱瀏覽模式）', 'warn', 5000); return false; } },
+  fillAttClass() { // 班別選單：使用中學年的夾班放最上，其後是單一班別
+    const sel = $('att-class'); if (!sel) return;
+    const cur = sel.value, act = this.cbActive(), list = this.cb.items.filter(x => x.year === act);
+    sel.innerHTML = '<option value="">選擇班別</option>' + (list.length ? `<optgroup label="夾班（${esc(act)}）">` + list.map(x => `<option value="combo:${esc(x.id)}">${esc(this.clsLabel('combo:' + x.id))}</option>`).join('') + '</optgroup>' : '') + CLASSES.map(c => `<option>${c}</option>`).join('');
+    if (cur && Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
+    const q = $('combo-quick'); if (!q) return;
+    q.classList.toggle('hidden', !list.length);
+    q.innerHTML = list.length ? '<div class="flex flex-wrap items-center gap-2"><span class="text-sm font-bold text-indigo-800">夾班點名：</span>' + list.map(x => `<button class="gb !border-indigo-300 !text-indigo-800 !bg-indigo-50" onclick="app.comboOpen('${esc(x.id)}')">${esc(this.clsLabel('combo:' + x.id))}</button>`).join('') + '</div>' : '';
+  },
+  comboOpen(id) { // 一鍵開啟夾班點名表（日期沿用目前選擇，預設今日）
+    const v = 'combo:' + id, c = this.comboGet(v); if (!c) return;
+    if (this.cbActive() !== c.year) { this.cb.active = c.year; this.cbPersist(); this.fillAttClass(); }
+    $('att-class').value = v; this.nav('attendance'); this.onSel();
+  },
+  cbAfterChange(touched) { // 設定改動後：作廢總表快取；若正在點名的夾班被改／刪／隱藏，保留草稿後收起畫面
+    this.gt.cache = {}; Object.keys(this.gt.gen).forEach(k => { this.gt.gen[k]++; });
+    const L = this.s.loaded; this.fillAttClass();
+    if (L && this.isCombo(L.cls) && (L.cls === 'combo:' + touched || $('att-class').value !== L.cls)) { clearTimeout(this.draftTimer); this.persistDraft(); this.clear(); }
+  },
+  cbRender() {
+    const act = this.cbActive(), ay = Number(this.acadYear().slice(0, 4)); if (!this.cbY) this.cbY = act;
+    const ys = new Set([-1, 0, 1, 2].map(d => (ay + d) + '-' + (ay + d + 1))); this.cb.items.forEach(x => ys.add(x.year)); ys.add(act); ys.add(this.cbY);
+    $('cb-year').innerHTML = Array.from(ys).sort().map(y => `<option value="${y}">${y}${y === act ? '（使用中）' : ''}</option>`).join(''); $('cb-year').value = this.cbY;
+    $('cb-active-note').innerHTML = this.cbY === act ? '✅ 這個學年正在用於「課堂點名」的班別選單' : `點名選單目前使用 <b>${esc(act)}</b> 學年的夾班`;
+    $('cb-active-btn').classList.toggle('hidden', this.cbY === act);
+    const ed = this.cbEdit; let h = '';
+    '123456'.split('').forEach(f => { h += `<div class="flex gap-1.5 mb-1.5 items-center"><span class="w-9 text-xs text-gray-500">中${f}</span>` + 'ABCDE'.split('').map(c => { const k = f + c, on = ed.classes.includes(k); return `<button type="button" class="flex-1 min-h-[44px] rounded border text-sm font-bold ${on ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300'}" onclick="app.cbTog('${k}')">${k}</button>`; }).join('') + '</div>'; });
+    $('cb-grid').innerHTML = h;
+    const picked = ed.classes.slice().sort((a, b) => CLASSES.indexOf(a) - CLASSES.indexOf(b));
+    $('cb-picked').textContent = picked.length ? '已選：' + picked.join(' + ') + '（' + picked.length + ' 班）' : '尚未選擇班別';
+    $('cb-form-title').textContent = (ed.id ? '編輯夾班' : '新增夾班') + '（' + this.cbY + ' 學年）'; $('cb-cancel').classList.toggle('hidden', !ed.id);
+    const list = this.cb.items.filter(x => x.year === this.cbY);
+    $('cb-list-title').textContent = this.cbY + ' 學年已設定的夾班（' + list.length + '）';
+    $('cb-list').innerHTML = list.length ? list.map(x => `<div class="border rounded p-2 mb-2 flex flex-wrap items-center gap-2"><div class="flex-1 min-w-[10rem]"><div class="font-bold text-blue-800">${esc(x.name || x.classes.join('+'))}</div><div class="text-xs text-gray-600">${x.classes.map(esc).join('、')}</div></div><button class="gb !bg-indigo-600 !text-white !border-indigo-700" onclick="app.comboOpen('${esc(x.id)}')">📋 點名</button><button class="gb" onclick="app.cbEditItem('${esc(x.id)}')">編輯</button><button class="gb" onclick="app.cbCopy('${esc(x.id)}')">複製到其他學年</button><button class="gb !text-red-700 !border-red-300" onclick="app.cbDel('${esc(x.id)}')">刪除</button></div>`).join('') : '<div class="text-sm text-gray-500">這個學年還沒有夾班設定。請在上面揀選班別後按「儲存夾班」。</div>';
+  },
+  cbTog(c) { const a = this.cbEdit.classes, k = a.indexOf(c); k > -1 ? a.splice(k, 1) : a.push(c); this.cbRender(); },
+  cbYear(v) { this.cbY = v; this.cbEdit = { id: '', classes: [] }; $('cb-name').value = ''; this.cbRender(); },
+  cbSetActive() { this.cb.active = this.cbY; this.cbPersist(); this.cbAfterChange('*'); this.cbRender(); this.toast('✅ 點名選單已改用 ' + this.cbY + ' 學年的夾班', 'ok'); },
+  cbCancel() { this.cbEdit = { id: '', classes: [] }; $('cb-name').value = ''; this.cbRender(); },
+  cbSaveItem() {
+    const ed = this.cbEdit, cs = ed.classes.slice().sort((a, b) => CLASSES.indexOf(a) - CLASSES.indexOf(b));
+    if (cs.length < 2) return alert('夾班最少要揀 2 個班別。');
+    const name = $('cb-name').value.trim().slice(0, 30);
+    let it = ed.id ? this.cb.items.find(x => x.id === ed.id) : null;
+    if (!it) { it = { id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), year: this.cbY, name: '', classes: [] }; this.cb.items.push(it); }
+    it.name = name; it.classes = cs;
+    this.cbPersist(); this.cbEdit = { id: '', classes: [] }; $('cb-name').value = ''; this.cbAfterChange(it.id); this.cbRender();
+    this.toast('✅ 已儲存夾班：' + (name || cs.join('+')), 'ok');
+  },
+  cbEditItem(id) { const it = this.cb.items.find(x => x.id === id); if (!it) return; this.cbEdit = { id, classes: it.classes.slice() }; $('cb-name').value = it.name; this.cbRender(); $('cb-form-title').scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+  cbDel(id) {
+    const it = this.cb.items.find(x => x.id === id); if (!it) return;
+    if (!confirm('刪除夾班「' + (it.name || it.classes.join('+')) + '」？\n（只刪除設定，不會影響任何點名紀錄）')) return;
+    this.cb.items = this.cb.items.filter(x => x.id !== id); this.cbPersist(); if (this.cbEdit.id === id) this.cbEdit = { id: '', classes: [] };
+    this.cbAfterChange(id); this.cbRender();
+  },
+  cbCopy(id) {
+    const it = this.cb.items.find(x => x.id === id); if (!it) return;
+    const ny = Number(it.year.slice(0, 4)) + 1, to = prompt('複製到哪個學年？（格式：' + ny + '-' + (ny + 1) + '）', ny + '-' + (ny + 1));
+    if (!to) return; if (!/^\d{4}-\d{4}$/.test(to.trim())) return alert('學年格式不正確，例：' + ny + '-' + (ny + 1));
+    this.cb.items.push({ id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), year: to.trim(), name: it.name, classes: it.classes.slice() });
+    this.cbPersist(); this.cbY = to.trim(); this.cbRender(); this.cbAfterChange('*');
+    this.toast('✅ 已複製到 ' + to.trim() + '；新學年班別有變請按「編輯」修改', 'ok', 4500);
+  },
+  cbExport() { const t = JSON.stringify(this.cb); $('cb-io').value = t; $('cb-io').select(); try { navigator.clipboard && navigator.clipboard.writeText(t); } catch (_) {} this.toast('已匯出設定碼（亦已嘗試複製到剪貼簿）', 'ok'); },
+  cbImport() {
+    let raw; try { raw = JSON.parse($('cb-io').value.trim()); } catch (_) { return alert('設定碼格式不正確，請重新複製。'); }
+    const n = this.cbNorm(raw); if (!n.items.length) return alert('設定碼內沒有有效的夾班設定。');
+    if (!confirm('匯入 ' + n.items.length + ' 個夾班設定？\n（編號相同的會覆蓋，其他現有設定保留）')) return;
+    n.items.forEach(x => { const k = this.cb.items.findIndex(y => y.id === x.id); if (k >= 0) this.cb.items[k] = x; else this.cb.items.push(x); });
+    if (n.active) this.cb.active = n.active;
+    this.cbPersist(); this.cbAfterChange('*'); this.cbRender(); this.toast('✅ 已匯入 ' + n.items.length + ' 個夾班設定', 'ok');
+  },
+  // 取得單一班別當日「學生＋已點名狀態」；沿用同日快取
+  async fetchDay(cls, date, bypass, freshFlag) {
+    const key = cls + '|' + date, hit = this.dayCache[key];
+    if (!bypass && hit && Date.now() - hit.t < DAY_CACHE_TTL) return hit;
+    const r = await this.api('getStudents', { classCode: cls, date, fresh: !!freshFlag }, { silent: true });
+    const st = (r.students || []).slice(); st.sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
+    const e = { students: st, saved: r.saved || {}, t: Date.now() };
+    if (st.length) { this.dayCache[key] = e; st.forEach(x => this.dbPutStudent(x).catch(() => {})); }
+    return e;
+  },
+  mergeDay(list) { const students = [], saved = {}; list.forEach(e => { e.students.forEach(x => students.push(x)); Object.assign(saved, e.saved || {}); }); return { students, saved }; },
+  async loadCombo(btn, cv, date) { // 夾班：各班並行載入，合併成一張點名表
+    const soft = btn === 'soft', bypass = btn === true || soft, cacheKey = cv + '|' + date, T0 = performance.now(), seq = this.loadSeq = (this.loadSeq || 0) + 1, cs = this.classesOf(cv);
+    if (!cs.length) { this.clear(); return alert('找不到這個夾班設定，請到「夾班設定」檢查。'); }
+    if (bypass) { this.deleteDraft(cacheKey); this.gtDrop(cv); }
+    $('upd-banner').classList.add('hidden'); this.syncChip(false);
+    const fresh = c => { const h = this.dayCache[c + '|' + date]; return h && Date.now() - h.t < DAY_CACHE_TTL ? h : null; };
+    if (!bypass && cs.every(c => fresh(c))) { // 全部班別都有同日快取：即時顯示，背景再核對
+      const m = this.mergeDay(cs.map(c => fresh(c)));
+      this.s.loadingKey = null; this.prepareAttendance(m.students, m.saved, cv, date);
+      this.s.attendanceReady = true; $('submit-btn').disabled = false; $('att-list').classList.remove('pointer-events-none', 'opacity-60');
+      console.log('[PERF] loadCombo cache:hit', Math.round(performance.now() - T0) + 'ms'); setTimeout(() => this.bgCheck(true), 300); return;
+    }
+    let local = [];
+    if (!bypass) { try { const parts = await Promise.all(cs.map(c => this.dbGetClass(c))); if (parts.every(p => p.length)) local = [].concat(...parts); } catch (e) { console.warn('[CACHE] 讀取本機名單失敗：', e.message); } }
+    if (seq !== this.loadSeq) return;
+    this.s.attendanceReady = false; $('submit-btn').disabled = true;
+    if (local.length) {
+      this.s.loadingKey = cacheKey; this.prepareAttendance(local, {}, cv, date);
+      this.s.attendanceReady = false; this.s.loadingKey = cacheKey;
+      $('att-note').classList.add('hidden'); this.syncChip(true, this.clsLabel(cv));
+      $('att-list').classList.add('pointer-events-none', 'opacity-60');
+    } else { this.clear(); this.s.loadingKey = cacheKey; $('att-list').innerHTML = this.skeleton(); }
+    try {
+      const parts = await Promise.all(cs.map(c => this.fetchDay(c, date, bypass, btn === true)));
+      if (seq !== this.loadSeq) return;
+      const empty = cs.filter((c, i) => !parts[i].students.length);
+      if (empty.length) { this.syncChip(false); this.clear(); return alert('找不到 ' + empty.join('、') + ' 班的學生紀錄。'); }
+      const m = this.mergeDay(parts);
+      this.s.loadingKey = null; this.prepareAttendance(m.students, m.saved, cv, date);
+      this.s.attendanceReady = true;
+      $('att-list').classList.remove('pointer-events-none', 'opacity-60'); $('submit-btn').disabled = false;
+      if (local.length) { this.syncChip(false); this.toast('✓ 已同步最新點名紀錄', 'ok', 1500); }
+      console.log('[PERF] loadCombo cache:miss', cs.length + ' classes', 'totalMs=' + Math.round(performance.now() - T0));
+    } catch (e) {
+      if (seq !== this.loadSeq) return;
+      this.syncChip(false);
+      if (!local.length) { this.clear(); alert('錯誤：' + e.message); }
+      else {
+        this.s.attendanceReady = false; $('att-list').classList.remove('pointer-events-none', 'opacity-60');
+        $('att-note').classList.remove('hidden'); $('att-note').textContent = '⚠️ 本機學生名單已載入，但未能取得最新點名紀錄；為避免重複或覆蓋紀錄，暫時不能提交。連線恢復後請重新載入。';
+        $('submit-btn').disabled = true;
+      }
+    }
+  },
+
   // ----- 點名 -----
   parseSaved(str) {
     str = String(str || '');
@@ -609,6 +815,7 @@ const app = {
     if (btn && this.s.dirty && !confirm('目前有未提交的修改，重新載入會放棄這些修改。確定？')) return;
     const cls = $('att-class').value, date = $('att-date').value;
     if (!cls || !date) return alert('請填寫日期及選擇班別！');
+    if (this.isCombo(cls)) return this.loadCombo(btn, cls, date); // v2.11 夾班
     const soft = btn === 'soft', cacheKey = cls + '|' + date, T0 = performance.now(); let idbMs = 0, netMs = 0; const seq = this.loadSeq = (this.loadSeq || 0) + 1; // 只接受最新一次載入的回應
     if (btn === true || soft) { this.deleteDraft(cacheKey); this.gtDrop(cls); } // 手動重新載入＝放棄草稿，並作廢該班總表快取
     $('upd-banner').classList.add('hidden'); this.syncChip(false);
@@ -716,13 +923,13 @@ const app = {
     const L = this.s.loaded;
     if (!this.s.token || !L || !this.s.attendanceReady || this.s.busy || this.bgChecking || !navigator.onLine || document.hidden) return;
     this.bgChecking = true; const bs = $('bg-status'); let diffFound = false, checked = false;
-    if (loud) { bs.textContent = '⏳ 正在核對 ' + L.cls + ' 最新點名紀錄…'; bs.classList.remove('hidden'); }
+    if (loud) { bs.textContent = '⏳ 正在核對 ' + this.clsLabel(L.cls) + ' 最新點名紀錄…'; bs.classList.remove('hidden'); }
     try {
-      const r = await this.api('getStudents', { classCode: L.cls, date: L.date, fresh: false }, { silent: true });
+      const rs = await Promise.all(this.classesOf(L.cls).map(c => this.api('getStudents', { classCode: c, date: L.date, fresh: false }, { silent: true }))), r = { saved: Object.assign({}, ...rs.map(x => x.saved || {})) };
       if (this.s.loaded !== L || this.s.busy) return;
       const diff = this.savedDiffers(r.saved || {}); diffFound = diff; checked = true;
       if (diff) {
-        $('upd-text').textContent = '🔔 偵測到 ' + L.cls + ' 本堂點名紀錄已被更新。' + (this.s.dirty ? '你有未提交的修改，按「重新載入」會放棄這些修改。' : '按「重新載入」查看最新紀錄。') + '（畫面不會自動改動）';
+        $('upd-text').textContent = '🔔 偵測到 ' + this.clsLabel(L.cls) + ' 本堂點名紀錄已被更新。' + (this.s.dirty ? '你有未提交的修改，按「重新載入」會放棄這些修改。' : '按「重新載入」查看最新紀錄。') + '（畫面不會自動改動）';
         $('upd-banner').classList.remove('hidden');
       } else $('upd-banner').classList.add('hidden');
     } catch (_) { /* 背景檢查失敗不打擾使用者 */ }
@@ -753,14 +960,14 @@ const app = {
     return n;
   },
   prepareAttendance(students, saved, cls, date) {
-    this.s.students = students.slice().sort((a, b) => parseInt(a.StudentNo) - parseInt(b.StudentNo));
+    this.s.students = this.stuSort(students, cls);
     this.s.att = {}; this.s.origNorm = {}; this.s.raw = Object.assign({}, saved || {});
     this.s.students.forEach(s => {
       if (saved && saved[s.StudentID]) { this.s.att[s.StudentID] = this.parseSaved(saved[s.StudentID]); this.s.origNorm[s.StudentID] = this.statusOf(this.s.att[s.StudentID]); }
       else this.s.att[s.StudentID] = { p: '出席', mods: [], other: '' };
     });
     const n = Object.keys(saved || {}).length, note = $('att-note');
-    note.classList.toggle('hidden', !n); note.textContent = n ? `${date} ${cls} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
+    note.classList.toggle('hidden', !n); note.textContent = n ? `${date} ${this.clsLabel(cls)} 班已有點名紀錄（${n} 人）：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。` : '';
     $('att-gender').value = this.lastG(); this.s.loaded = { cls, date }; this.s.filterOpen = false; this.s.dirty = false;
     const nd = this.applyDraft(cls, date); if (nd) { this.s.dirty = true; if (!this.s.loadingKey) this.toast('已還原你未提交的 ' + nd + ' 項修改（草稿）', 'warn', 4200); }
     this.render();
@@ -772,7 +979,7 @@ const app = {
     $('att-bar').classList.toggle('hidden', !has);
     $('att-filter').classList.toggle('hidden', has && !this.s.filterOpen); // 載入名單後自動收起篩選區
     if (!has) return;
-    $('att-sum').textContent = $('att-class').value || ''; $('att-date2').value = $('att-date').value;
+    $('att-sum').textContent = this.clsLabel($('att-class').value) || ''; $('att-date2').value = $('att-date').value;
     ['all', 'M', 'F'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('gb-' + k).classList.toggle(c, g === k)));
     ['grid', 'list', 'tbl'].forEach(k => ['!bg-blue-600', '!text-white'].forEach(c => $('vb-' + k).classList.toggle(c, this.vw === k)));
   },
@@ -803,7 +1010,7 @@ const app = {
       const un = upd && (this.s.origNorm || {})[s.StudentID] === undefined; // 後端未有紀錄（未儲存）
       const chg = un ? ' border-dashed ring-2 ring-gray-400 ring-offset-1' : (upd && this.isChanged(s) ? ' ring-2 ring-amber-400 ring-offset-1' : '');
       if (un) label = '未儲存·' + label;
-      return `<button class="relative rounded-lg border-2 px-0.5 pt-4 pb-3 min-h-[72px] text-center leading-tight ${c}${chg}" onclick="app.openSheet(${i})"><span class="absolute top-0.5 left-1 text-[10px] opacity-70">${esc(s.StudentNo)}</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${dot}"></span><span class="block font-bold text-sm break-all">${esc(s.ChiName)}</span><span class="block text-[11px] truncate">${esc(label)}</span>${cnt ? `<span class="absolute bottom-0.5 right-1 text-[9px] opacity-80">${cnt}</span>` : ''}</button>`;
+      return `<button class="relative rounded-lg border-2 px-0.5 pt-4 pb-3 min-h-[72px] text-center leading-tight ${c}${chg}" onclick="app.openSheet(${i})"><span class="absolute top-0.5 left-1 text-[10px] opacity-70">${esc(this.noLbl(s))}</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${dot}"></span><span class="block font-bold text-sm break-all">${esc(s.ChiName)}</span><span class="block text-[11px] truncate">${esc(label)}</span>${cnt ? `<span class="absolute bottom-0.5 right-1 text-[9px] opacity-80">${cnt}</span>` : ''}</button>`;
     };
     $('att-list').innerHTML = `<div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">${idx.map(tile).join('')}</div><div class="text-xs text-gray-500 mt-2">撳學生格仔改狀態。右上圓點：🟢 正常　🟡 有備註可上堂　🔴 免上堂；右下「缺／衫」＝累計缺席／冇帶衫次數</div>`;
     this.stats(idx.map(i => this.s.students[i]));
@@ -812,7 +1019,10 @@ const app = {
     window.scrollTo(0, y);
   },
   // ----- 課堂點名總表（v2.10.1；只有撳「▤ 總表」才會向後端取資料，其他流程不增加任何請求） -----
-  gtDrop(cls) { const g = this.gt; g.gen[cls] = (g.gen[cls] || 0) + 1; Object.keys(g.cache).forEach(k => { if (k.indexOf(cls + '|') === 0) delete g.cache[k]; }); g.err = null; },
+  gtDrop(cls) { // 作廢該班（或夾班內所有班）的總表快取；單班提交時，包含該班的夾班總表快取亦一併作廢
+    const g = this.gt, cs = this.classesOf(cls); cs.forEach(c => { g.gen[c] = (g.gen[c] || 0) + 1; });
+    Object.keys(g.cache).forEach(k => { const p = k.split('|')[0]; if (cs.some(c => p === c || this.classesOf(p).indexOf(c) >= 0)) delete g.cache[k]; }); g.err = null;
+  },
   gtKey(cls, r) { return cls + '|' + r.from + '|' + r.to; },
   gtRange() { return gridRange(this.gt.mode, this.sc.cfg, this.today(), { from: this.gt.from, to: this.gt.to }); }, // 設定讀不到時 cfg 為預設值，gridRange 亦有後備
   gtShell() {
@@ -856,11 +1066,12 @@ const app = {
     this.gtFetch(L.cls, r, key);
   },
   async gtFetch(cls, r, key) {
-    const g = this.gt, gen = g.gen[cls] || 0, fresh = g.fresh; g.fresh = false; g.loading = key; g.err = null;
-    this.gtMsg('⏳ 正在載入 ' + esc(cls) + ' 總表…');
+    const g = this.gt, cs = this.classesOf(cls), genOf = () => cs.reduce((n, c) => n + (g.gen[c] || 0), 0), gen = genOf(), fresh = g.fresh; g.fresh = false; g.loading = key; g.err = null;
+    this.gtMsg('⏳ 正在載入 ' + esc(this.clsLabel(cls)) + ' 總表…');
     try {
-      const data = await this.api('getClassGrid', { classCode: cls, from: r.from, to: r.to, fresh }, { silent: true, timeout: 60000 });
-      if ((g.gen[cls] || 0) === gen) g.cache[key] = { data, t: Date.now() }; // 載入期間若已提交／重新載入，這份資料可能過時，不入快取，由下面重新載入
+      const parts = await Promise.all(cs.map(c => this.api('getClassGrid', { classCode: c, from: r.from, to: r.to, fresh }, { silent: true, timeout: 60000 })));
+      const data = this.isCombo(cls) ? gridMerge(cs.map((c, i) => ({ cls: c, data: parts[i] }))) : parts[0];
+      if (genOf() === gen) g.cache[key] = { data, t: Date.now() }; // 載入期間若已提交／重新載入，這份資料可能過時，不入快取，由下面重新載入
     } catch (e) { g.err = { key, msg: /無效的操作/.test(e.message) ? '後端尚未更新至 v2.10.1，請先把最新 Code.gs 重新部署為「新版本」。' : e.message }; }
     finally { if (g.loading === key) g.loading = ''; }
     if (this.vw === 'tbl' && this.s.token) this.renderTable();
@@ -877,7 +1088,7 @@ const app = {
     const show = [], td = this.today(); if (L && L.cls === cls) show.push(L.date); if (!show.includes(td) && '一二三四五'.indexOf(gridWd(td)) >= 0) show.push(td); // 目前載入日期＋今日（平日）一定有欄
     const m = gridModel(data, { from: r.from, to: r.to, ids: $('att-gender').value === 'all' ? null : ids, overlay, show });
     g.model = m; g.cls = cls; g.range = r;
-    $('gt-info').textContent = `${cls}｜${r.from} 至 ${r.to}｜${m.dates.filter((d, j) => m.rows.some(x => x.cells[j].k !== 'none')).length} 個點名日｜${m.rows.length} 人` + (overlay && this.s.dirty && m.dates.indexOf(L.date) >= 0 ? `｜${L.date} 含未提交草稿` : '');
+    $('gt-info').textContent = `${this.clsLabel(cls)}｜${r.from} 至 ${r.to}｜${m.dates.filter((d, j) => m.rows.some(x => x.cells[j].k !== 'none')).length} 個點名日｜${m.rows.length} 人` + (overlay && this.s.dirty && m.dates.indexOf(L.date) >= 0 ? `｜${L.date} 含未提交草稿` : '');
     if (!m.rows.length) { this.gtMsg('找不到符合的學生'); return; }
     if (!m.dates.length) { this.gtMsg('此日期範圍內沒有點名紀錄'); return; }
     const sc = $('gt-scroll'), keep = sc && g.drawKey === this.gtKey(cls, r) ? [sc.scrollLeft, sc.scrollTop] : null;
@@ -902,7 +1113,7 @@ const app = {
     if (i < 0) return this.toast('找不到該學生，請重新載入名單', 'warn');
     this.openSheet(i);
   },
-  // ----- 總表直接點名（v2.10.3） -----
+  // ----- 總表直接點名（v2.10.2） -----
   gtCell(sid, d) {
     const L = this.s.loaded, g = this.gt; if (!L || g.saving || this.s.busy) return;
     if (d === L.date) { // 目前載入的日期：沿用草稿流程（現有底部選單），按「提交」才儲存
@@ -913,7 +1124,7 @@ const app = {
     const m = g.model, r = m && m.rows.find(x => x.id === sid), j = m ? m.dates.indexOf(d) : -1;
     if (!r || j < 0) return;
     const raw = r.cells[j].raw || '';
-    this.s.sheetI = null; g.edit = { sid, date: d, no: r.no, name: r.name, raw, a: this.parseSaved(raw || '出席') };
+    this.s.sheetI = null; g.edit = { sid, date: d, no: r.lbl || r.no, name: r.name, raw, a: this.parseSaved(raw || '出席') };
     $('sheet').classList.remove('hidden'); this.gtEditRender();
   },
   gtEditRender() {
@@ -936,11 +1147,11 @@ const app = {
     const st = this.statusOf(e.a);
     if (e.raw && st === this.statusOf(this.parseSaved(e.raw))) { this.closeSheet(); return this.toast('沒有修改'); }
     if (!confirm(`修改 ${e.name}（${e.date}）的點名紀錄？\n${e.raw || '（沒有紀錄）'}  →  ${st}\n儲存後即時寫入紀錄。`)) return;
-    const cls = L.cls, q = gridEditRequest(cls, e.date, e.sid, e.raw, st), btn = $('gt-save');
+    const st0 = this.s.students.find(x => x.StudentID === e.sid), cls = st0 ? this.realCls(st0, L.cls) : L.cls, q = gridEditRequest(cls, e.date, e.sid, e.raw, st), btn = $('gt-save'); // 夾班：用學生真實班別儲存
     g.saving = true; if (btn) { btn.disabled = true; btn.textContent = '⏳ 儲存中…'; }
     try {
       await this.api('saveAttendance', Object.assign({ requestId: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) }, q), { silent: true });
-      Object.keys(g.cache).forEach(k => { if (k.indexOf(cls + '|') === 0) gridPatch(g.cache[k].data, e.date, e.sid, st); }); // 就地更新，不需重新向後端取全表
+      Object.keys(g.cache).forEach(k => { const p = k.split('|')[0]; if (p === cls || this.classesOf(p).indexOf(cls) >= 0) gridPatch(g.cache[k].data, e.date, e.sid, st); }); // 就地更新，不需重新向後端取全表
       this.dropDay(cls + '|' + e.date);
       const nm = e.name, dt = e.date; this.closeSheet(); this.toast('✅ 已更新 ' + nm + ' ' + dt.slice(5) + '：' + st, 'ok');
     } catch (err) {
@@ -951,7 +1162,7 @@ const app = {
   gtCsv() {
     const m = this.gt.model, r = this.gt.range;
     if (!m || !m.dates.length) return alert('目前沒有可匯出的總表資料（請先選擇有點名紀錄的班別及日期範圍）');
-    this.download('FRCSS_Class_Grid_' + this.gt.cls + '_' + r.from + '_' + r.to + '.csv', gridCsv(m, v => this.csvCell(v)));
+    this.download('FRCSS_Class_Grid_' + this.classesOf(this.gt.cls).join('+') + '_' + r.from + '_' + r.to + '.csv', gridCsv(m, v => this.csvCell(v)));
   },
   openSheet(i) { this.s.sheetI = i; $('sheet').classList.remove('hidden'); this.sheetRender(); },
   closeSheet() { this.s.sheetI = null; if (this.gt) this.gt.edit = null; $('sheet').classList.add('hidden'); },
@@ -973,7 +1184,7 @@ const app = {
     const mods = a.p !== '出席' ? '' : `<div class="grid grid-cols-3 gap-2 mt-3">${MODS.map(m => `<button class="${big}text-base ${a.mods.includes(m) ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-white text-gray-700 border-gray-300'}" onclick="app.sheetMod('${m}')">${m}</button>`).join('')}</div><div class="text-xs text-yellow-800 mt-1">冇帶衫／受傷／見社工：仍然計出席</div>`;
     const other = a.p !== '其他' ? '' : `<input class="inp mt-3 text-base" placeholder="原因（例如：病假、早退）" maxlength="40" value="${esc(a.other)}" oninput="app.setOther(${i},this.value)">`;
     const hist = (s.absCount ? `<div class="text-sm"><b class="text-red-600">缺席 ${s.absCount} 次：</b>${esc(s.absDates)}</div>` : '') + (s.noUniformCount ? `<div class="text-sm"><b class="text-yellow-700">冇帶衫 ${s.noUniformCount} 次：</b>${esc(s.noUniformDates)}</div>` : '');
-    $('sheet-body').innerHTML = `<div class="flex items-center justify-between mb-2"><div class="text-lg"><span class="text-gray-500 mr-2">${esc(s.StudentNo)}</span><b class="text-blue-800">${esc(s.ChiName)}</b>${s.House ? ` <span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : ''}</div><button class="px-4 py-2 text-2xl text-gray-500" onclick="app.closeSheet()">✕</button></div>` +
+    $('sheet-body').innerHTML = `<div class="flex items-center justify-between mb-2"><div class="text-lg"><span class="text-gray-500 mr-2">${esc(this.noLbl(s))}</span><b class="text-blue-800">${esc(s.ChiName)}</b>${s.House ? ` <span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : ''}</div><button class="px-4 py-2 text-2xl text-gray-500" onclick="app.closeSheet()">✕</button></div>` +
       `<div class="flex flex-wrap items-center gap-2 mb-3"><button class="px-3 rounded text-sm font-bold text-white min-h-[40px] ${ab[0]}" onclick="app.sheetAbility()">${ab[1]}</button>${rem ? `<span class="text-sm text-gray-600">${esc(rem)}</span>` : ''}</div>` +
       `<div class="grid grid-cols-4 gap-2">${PRIMARY.map(pbtn).join('')}</div>${mods}${other}<div class="mt-3 space-y-1">${hist}</div>` +
       `<div class="grid grid-cols-3 gap-2 mt-4"><button class="btn bg-gray-500" onclick="app.sheetNav(-1)">◀ 上一位</button><button class="btn bg-blue-600" onclick="app.closeSheet()">完成</button><button class="btn bg-gray-500" onclick="app.sheetNav(1)">下一位 ▶</button></div>`;
@@ -997,7 +1208,7 @@ const app = {
       const house = s.House ? `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${this.houseCls(s.House)}">${esc(this.houseLbl(s.House))}</span>` : '';
       return `<div class="bg-white rounded border px-2 py-1.5 mb-1.5 md:flex md:items-center md:gap-3 ${upd ? ((this.s.origNorm || {})[s.StudentID] === undefined ? '!border-dashed !border-gray-400' : this.isChanged(s) ? '!border-amber-400 !bg-amber-50' : '') : ''}">
         <div class="md:w-80 flex items-center gap-1.5 flex-wrap mb-1 md:mb-0">
-          <span class="text-gray-400 text-sm w-6">${esc(s.StudentNo)}</span><span class="font-bold text-blue-800">${esc(s.ChiName)}</span>${house}${upd && (this.s.origNorm || {})[s.StudentID] === undefined ? '<span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-bold">未儲存</span>' : ''}
+          <span class="text-gray-400 text-sm ${this.inCombo() ? 'min-w-[3.2rem]' : 'w-6'}">${esc(this.noLbl(s))}</span><span class="font-bold text-blue-800">${esc(s.ChiName)}</span>${house}${upd && (this.s.origNorm || {})[s.StudentID] === undefined ? '<span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-bold">未儲存</span>' : ''}
           <button class="${chip}text-white ${ab[0]}" onclick="app.togAbility(${i})">${ab[1]}</button>${s.absCount ? `<button class="${chip}bg-red-100 text-red-700" onclick="app.dates(${i},'abs')">缺席${s.absCount}</button>` : ''}${s.noUniformCount ? `<button class="${chip}bg-yellow-100 text-yellow-700" onclick="app.dates(${i},'uni')">冇帶衫${s.noUniformCount}</button>` : ''}${s.PERemarks ? `<span class="text-xs text-gray-500">${esc(s.PERemarks)}</span>` : ''}</div>
         <div class="flex-1"><div class="flex">${pb}</div>${mods}${other}</div></div>`;
     }).join('');
@@ -1034,55 +1245,71 @@ const app = {
   isChanged(s) { const o = (this.s.origNorm || {})[s.StudentID]; return o === undefined || this.statusOf(this.s.att[s.StudentID]) !== o; },
 
   // 確認點名：只提交「目前顯示的性別」的學生；後端會再次核實性別及比對載入時的狀態（Orig）
+  // v2.11 夾班：按學生真實班別分組，每班各發一個 saveAttendance（後端不需改動）；單班時行為與舊版相同
   async submit() {
     if (this.s.busy) return;
     if (!this.s.attendanceReady) return alert('仍未取得最新點名紀錄，請待同步完成後再提交。');
-    const cls = $('att-class').value, date = $('att-date').value, g = $('att-gender').value, L0 = this.s.loaded;
-    const label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學', upd = this.hasSaved();
-    const shown = this.s.students.filter(s => g === 'all' || this.gOf(s) === g);
-    const target = upd ? shown.filter(s => this.isChanged(s)) : shown; // 同日已有紀錄：只送出有修改（或未儲存）的學生
-    if (!target.length) return alert(upd ? '沒有任何修改，毋須更新。' : '目前沒有可提交的學生');
-    const raw = this.s.raw || {};
-    const snap = target.map(s => ({ id: s.StudentID, st: this.statusOf(this.s.att[s.StudentID]) })); // 提交當刻的快照
-    const records = snap.map(x => ({ StudentID: x.id, AttendanceStatus: x.st, Orig: raw[x.id] !== undefined ? raw[x.id] : null }));
-    const names = target.slice(0, 8).map(s => s.ChiName).join('、') + (target.length > 8 ? '…' : '');
-    const msg = upd ? `更新 ${cls}（${date}）的點名紀錄？\n只會更新 ${target.length} 名學生：${names}${this.nUn(target) ? `\n⚠️ 其中 ${this.nUn(target)} 人是首次記錄（未點名的會按畫面現時狀態儲存，預設為出席）` : ''}\n其他學生的紀錄不受影響。`
-                    : `確認提交 ${cls}（${date}）【${label}】的點名紀錄？\n共 ${records.length} 人。只會儲存目前顯示的學生，其他學生的紀錄不受影響。`;
+    const cls = $('att-class').value, date = $('att-date').value, g = $('att-gender').value, L0 = this.s.loaded, combo = this.isCombo(cls);
+    const label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學', o = this.s.origNorm || {};
+    const shown = this.s.students.filter(s => g === 'all' || this.gOf(s) === g), groups = [];
+    this.classesOf(cls).forEach(c => {
+      const mine = this.s.students.filter(s => this.realCls(s, cls) === c), own = shown.filter(s => this.realCls(s, cls) === c);
+      const upd = mine.some(s => o[s.StudentID] !== undefined);
+      const target = upd ? own.filter(s => this.isChanged(s)) : own; // 同日已有紀錄：只送出有修改（或未儲存）的學生
+      if (target.length) groups.push({ c, upd, target });
+    });
+    if (!groups.length) return alert(this.hasSaved() ? '沒有任何修改，毋須更新。' : '目前沒有可提交的學生');
+    const raw = this.s.raw || {}, nUn = groups.filter(x => x.upd).reduce((n, x) => n + this.nUn(x.target), 0);
+    const names = arr => arr.slice(0, 8).map(s => s.ChiName).join('、') + (arr.length > 8 ? '…' : '');
+    let msg;
+    if (!combo) { const x = groups[0]; msg = x.upd ? `更新 ${cls}（${date}）的點名紀錄？\n只會更新 ${x.target.length} 名學生：${names(x.target)}${nUn ? `\n⚠️ 其中 ${nUn} 人是首次記錄（未點名的會按畫面現時狀態儲存，預設為出席）` : ''}\n其他學生的紀錄不受影響。`
+                       : `確認提交 ${cls}（${date}）【${label}】的點名紀錄？\n共 ${x.target.length} 人。只會儲存目前顯示的學生，其他學生的紀錄不受影響。`; }
+    else msg = `確認提交夾班 ${this.clsLabel(cls)}（${date}）【${label}】的點名紀錄？\n` + groups.map(x => `・${x.c}：${x.upd ? '更新' : '提交'} ${x.target.length} 人`).join('\n') + (nUn ? `\n⚠️ 其中 ${nUn} 人是首次記錄（未點名的會按畫面現時狀態儲存，預設為出席）` : '') + '\n各班會分開儲存；其他學生的紀錄不受影響。';
     if (!confirm(msg)) return;
-    const key = JSON.stringify([cls, date, g, records]); // 同一批內容重試時沿用同一個 requestId
-    if (!this.s.req || this.s.req.k !== key) this.s.req = { k: key, id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) };
     this.s.busy = true; const btn = $('submit-btn'); btn.disabled = true; btn.textContent = '⏳ 提交中…（請勿關閉頁面）';
-    const t0 = performance.now();
-    try {
-      const r = await this.api('saveAttendance', { requestId: this.s.req.id, sessionData: { classCode: cls, date, group: g, mode: upd ? 'update' : 'full', studentIds: snap.map(x => x.id) }, records }, { silent: true });
-      this.s.req = null; this.gtDrop(cls); // 提交成功：作廢該班總表快取
-      if (this.s.loaded === L0) { // 上傳期間若已切換班別／日期，就不要動新載入的資料
-        this.s.origNorm = this.s.origNorm || {}; this.s.raw = this.s.raw || {};
-        snap.forEach(x => { this.s.origNorm[x.id] = x.st; this.s.raw[x.id] = x.st; }); // 只標記「已提交」那一刻的狀態
-        this.s.dirty = this.s.students.some(s => this.s.origNorm[s.StudentID] !== undefined && this.statusOf(this.s.att[s.StudentID]) !== this.s.origNorm[s.StudentID]);
-      }
-      if (this.s.loaded === L0) { const nt = $('att-note'); nt.classList.remove('hidden'); nt.textContent = `${date} ${cls} 班已有點名紀錄：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。`; }
-      console.log('[PERF] 確認點名全流程', Math.round(performance.now() - t0) + 'ms');
-      this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render();
-      if (this.s.loaded === L0) { this.persistDraft(); this.dropDay(cls + '|' + date); $('upd-banner').classList.add('hidden'); } // 已提交部分的草稿即清；其他性別未提交的修改仍保留
-      try { navigator.vibrate && navigator.vibrate(30); } catch (_) {}
-      this.toast('✅ ' + r.message + (!upd && g !== 'all' ? '　如另一組亦要點名，請切換「顯示」後再提交。' : ''), 'ok', g !== 'all' && !upd ? 5000 : 3200);
-    } catch (e) {
-      this.dropDay(cls + '|' + date); this.gtDrop(cls); // 失敗（例如已被另一位老師更改）→ 作廢快取，下次載入取最新
-      this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render(); // 失敗：保留所有修改，可重新提交
-      alert('❌ 提交失敗，資料未確認儲存（修改已保留，可再按提交）：\n' + e.message);
+    this.s.reqs = this.s.reqs || {}; const t0 = performance.now(), done = [], failed = [];
+    for (const x of groups) {
+      const snap = x.target.map(s => ({ id: s.StudentID, st: this.statusOf(this.s.att[s.StudentID]) })); // 提交當刻的快照
+      const records = snap.map(y => ({ StudentID: y.id, AttendanceStatus: y.st, Orig: raw[y.id] !== undefined ? raw[y.id] : null }));
+      const key = JSON.stringify([x.c, date, g, records]); // 同一批內容重試時沿用同一個 requestId
+      if (!this.s.reqs[key]) this.s.reqs[key] = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      try {
+        const r = await this.api('saveAttendance', { requestId: this.s.reqs[key], sessionData: { classCode: x.c, date, group: g, mode: x.upd ? 'update' : 'full', studentIds: snap.map(y => y.id) }, records }, { silent: true });
+        delete this.s.reqs[key]; done.push({ x, snap, msg: r.message });
+      } catch (e) { failed.push({ x, err: e.message }); }
+      this.gtDrop(x.c); this.dropDay(x.c + '|' + date); // 成功：作廢總表快取；失敗（例如已被另一位老師更改）：作廢快取，下次載入取最新
     }
+    if (this.s.loaded === L0 && done.length) { // 上傳期間若已切換班別／日期，就不要動新載入的資料
+      this.s.origNorm = this.s.origNorm || {}; this.s.raw = this.s.raw || {};
+      done.forEach(d => d.snap.forEach(y => { this.s.origNorm[y.id] = y.st; this.s.raw[y.id] = y.st; })); // 只標記「已提交」那一刻的狀態
+      this.s.dirty = this.s.students.some(s => this.s.origNorm[s.StudentID] !== undefined && this.statusOf(this.s.att[s.StudentID]) !== this.s.origNorm[s.StudentID]);
+      const nt = $('att-note'); nt.classList.remove('hidden'); nt.textContent = `${date} ${this.clsLabel(cls)} 班已有點名紀錄：虛線＝尚未儲存（未點名），淺黃＝已儲存後被修改、待提交。只會更新有修改或未儲存的學生，其他學生的紀錄不受影響。`;
+    }
+    console.log('[PERF] 確認點名全流程', Math.round(performance.now() - t0) + 'ms');
+    this.s.busy = false; btn.disabled = false; if (this.s.students.length) this.render();
+    if (this.s.loaded === L0 && done.length) { this.persistDraft(); $('upd-banner').classList.add('hidden'); } // 已提交部分的草稿即清；其他性別／未成功班別的修改仍保留
+    if (done.length) { try { navigator.vibrate && navigator.vibrate(30); } catch (_) {} }
+    if (failed.length) {
+      const f = failed.map(y => (combo ? y.x.c + '：' : '') + y.err).join('\n');
+      return alert(done.length ? `⚠️ 夾班部分提交成功（${done.map(d => d.x.c).join('、')}）；以下班別失敗，資料未確認儲存（修改已保留，可再按提交）：\n${f}` : '❌ 提交失敗，資料未確認儲存（修改已保留，可再按提交）：\n' + f);
+    }
+    const hint = g !== 'all' && groups.every(x => !x.upd);
+    this.toast('✅ ' + (combo ? '夾班點名已儲存：' + done.map(d => d.x.c + ' ' + d.x.target.length + ' 人').join('、') : done[0].msg) + (hint ? '　如另一組亦要點名，請切換「顯示」後再提交。' : ''), 'ok', hint ? 5000 : 3200);
   },
-  // 清除目前班別＋日期＋所選性別（全班／男／女）的已儲存紀錄；後端會先備份到 Deleted_Log
+  // 清除目前班別＋日期＋所選性別（全班／男／女）的已儲存紀錄；後端會先備份到 Deleted_Log（夾班：每班各清除）
   async clearSession() {
     const L = this.s.loaded; if (!L || this.s.busy) return;
-    const g = $('att-gender').value, label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學';
-    if (!confirm(`⚠️ 清除 ${L.cls}（${L.date}）【${label}】已儲存的點名紀錄？\n清除後可重新點名；被清除的紀錄會備份到「Deleted_Log」工作表。\n（畫面上未提交的修改也會被重置）`)) return;
+    const g = $('att-gender').value, label = g === 'all' ? '全班' : g === 'M' ? '男同學' : '女同學', cs = this.classesOf(L.cls), combo = this.isCombo(L.cls);
+    if (!confirm(`⚠️ 清除 ${this.clsLabel(L.cls)}（${L.date}）【${label}】已儲存的點名紀錄？` + (combo ? `\n（會清除 ${cs.join('、')} 各班該日的紀錄）` : '') + `\n清除後可重新點名；被清除的紀錄會備份到「Deleted_Log」工作表。\n（畫面上未提交的修改也會被重置）`)) return;
+    const msgs = [];
     try {
-      const r = await this.api('clearSession', { classCode: L.cls, date: L.date, group: g });
-      this.s.dirty = false; this.dropDay(L.cls + '|' + L.date); this.gtDrop(L.cls); await this.loadList(true);
-      this.toast('✅ ' + r.message, 'ok');
-    } catch (e) { alert('❌ 清除失敗：\n' + e.message); }
+      for (const c of cs) { const r = await this.api('clearSession', { classCode: c, date: L.date, group: g }); msgs.push(r.message); this.dropDay(c + '|' + L.date); }
+      this.s.dirty = false; this.gtDrop(L.cls); await this.loadList(true);
+      this.toast('✅ ' + (combo ? '已清除夾班 ' + cs.join('、') + ' 的紀錄' : msgs[0]), 'ok');
+    } catch (e) {
+      if (msgs.length) { this.s.dirty = false; this.gtDrop(L.cls); await this.loadList(true); } // 夾班部分已清除：重新載入反映實況
+      alert('❌ 清除失敗：\n' + e.message);
+    }
   },
   onSel() {
     const cls = $('att-class').value, date = $('att-date').value, L = this.s.loaded;
