@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FRCSS PE 點名系統</title>
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#f4f5fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0e16" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <meta name="description" content="FRCSS PE 點名系統">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -14,60 +16,118 @@
 <meta name="apple-mobile-web-app-title" content="PE 點名">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+// 2026 設計：顏色改用 CSS 變數，淺色／深色模式自動跟隨系統
+const ch = n => `rgb(var(--${n}) / <alpha-value>)`;
+tailwind.config = { theme: { extend: { colors: {
+  gray: Object.fromEntries([50,100,200,300,400,500,600,700,800,900].map(k => [k, ch('g' + k)])),
+  blue: Object.fromEntries([50,100,200,300,400,500,600,700,800,900].map(k => [k, ch('b' + k)])),
+} } } };
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style type="text/tailwindcss">
   @layer components {
-    .btn { @apply px-4 py-2 rounded font-bold text-white shadow disabled:opacity-50; }
-    .inp { @apply border border-gray-300 p-2 rounded w-full outline-none focus:ring-2 focus:ring-blue-500 bg-white; }
-    .lbl { @apply block text-sm font-bold text-gray-700 mb-1; }
-    .card { @apply bg-white p-4 rounded-lg shadow mb-6; }
-    .pb { @apply flex-1 py-2 px-1 mx-0.5 rounded text-base border border-gray-200 bg-gray-100 text-gray-700 min-h-[44px]; }
-    .mb2 { @apply px-2 py-2.5 rounded text-sm flex-1 border border-gray-300 bg-white text-gray-600 min-h-[44px]; }
+    .btn { @apply font-bold text-white disabled:opacity-50; padding: .65rem 1.1rem; border-radius: 14px; min-height: 44px; box-shadow: 0 1px 2px rgb(0 0 0 / .08), 0 8px 18px -8px rgb(0 0 0 / .35); }
+    .inp { @apply w-full outline-none bg-white; border: 1px solid rgb(var(--g200)); padding: .6rem .8rem; border-radius: 14px; min-height: 46px; font-size: 16px; transition: box-shadow .15s, border-color .15s; }
+    .inp:focus { border-color: rgb(var(--b500)); box-shadow: 0 0 0 4px rgb(var(--b500) / .18); }
+    .lbl { @apply block font-bold text-gray-600 mb-1; font-size: .78rem; letter-spacing: .02em; }
+    .card { @apply bg-white mb-5; padding: 1.1rem; border-radius: 22px; border: 1px solid rgb(var(--g200) / .7); box-shadow: 0 1px 2px rgb(15 23 42 / .04), 0 12px 32px -16px rgb(15 23 42 / .18); }
+    .pb { @apply flex-1 py-2 px-1 mx-0.5 text-base border border-gray-200 bg-gray-100 text-gray-700 min-h-[44px]; border-radius: 14px; }
+    .mb2 { @apply px-2 py-2.5 text-sm flex-1 border border-gray-300 bg-white text-gray-600 min-h-[44px]; border-radius: 14px; }
     button, select, input, summary { touch-action: manipulation; }
-    .gb { @apply px-3 py-2 rounded border border-gray-300 bg-white text-sm min-h-[40px]; }
+    .gb { @apply px-3 py-2 border border-gray-200 bg-white text-sm min-h-[40px]; border-radius: 12px; }
     body { -webkit-tap-highlight-color: transparent; }
   }
-  .loader { border-top-color:#3498db; animation: sp 1.2s linear infinite; }
+  /* ===== v2.12 · 2026 外觀 ===== */
+  :root { --g50:248 250 252; --g100:241 243 249; --g200:226 230 240; --g300:203 209 225; --g400:148 158 180; --g500:100 112 138; --g600:75 85 110; --g700:51 61 85; --g800:30 38 58; --g900:15 23 42;
+    --b50:238 242 255; --b100:224 231 255; --b200:199 210 254; --b300:165 180 252; --b400:129 140 248; --b500:99 102 241; --b600:79 70 229; --b700:67 56 202; --b800:55 48 163; --b900:49 46 129;
+    --surface:255 255 255; --page:244 245 251; --tabh:68px; --rail:236px; }
+  @media (prefers-color-scheme: dark) { :root { --g50:24 29 42; --g100:30 36 52; --g200:46 54 76; --g300:68 78 104; --g400:120 130 156; --g500:148 158 182; --g600:178 186 206; --g700:205 211 226; --g800:226 230 240; --g900:243 245 250;
+    --b50:30 33 70; --b100:40 44 92; --b200:58 64 130; --b300:99 107 190; --b400:129 140 248; --b500:129 140 248; --b600:99 102 241; --b700:165 180 252; --b800:199 210 254; --b900:224 231 255;
+    --surface:21 26 40; --page:10 13 21; }
+    .bg-white { background-color: rgb(var(--surface)); }
+    .bg-red-50,.bg-red-100 { background-color: #3a1a20; } .bg-amber-50,.bg-amber-100,.bg-yellow-50,.bg-yellow-100,.bg-orange-100 { background-color: #3a2c12; } .bg-green-50,.bg-green-100 { background-color: #12301f; }
+    .bg-slate-50,.bg-indigo-50 { background-color: rgb(var(--g100)); }
+    .text-red-700,.text-red-600 { color: #fca5a5; } .text-amber-800,.text-amber-700,.text-orange-900,.text-yellow-900 { color: #fcd34d; } .text-green-900 { color: #86efac; } .text-slate-600,.text-indigo-700 { color: rgb(var(--g600)); }
+    .border-red-200,.border-red-300 { border-color: #6b2a33; } .border-amber-300,.border-orange-400,.border-yellow-400 { border-color: #7a5a1c; }
+  }
+  html { background: rgb(var(--page)); }
+  body { background: radial-gradient(1100px 520px at 12% -8%, rgb(var(--b500) / .16), transparent 60%), radial-gradient(900px 480px at 100% 0%, rgb(167 139 250 / .14), transparent 60%), rgb(var(--page)); background-attachment: fixed; color: rgb(var(--g800)); font-family: "Inter var", Inter, system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif; letter-spacing: .005em; }
+  main h2 { border: 0 !important; padding: 0 !important; font-size: clamp(1.4rem, 1.1rem + 1vw, 1.9rem); font-weight: 800; letter-spacing: -.01em; margin-bottom: 1rem; }
+  main h3 { font-weight: 800; }
+  main .bg-white.rounded.shadow, main .bg-white.rounded.shadow-md { border-radius: 20px; border: 1px solid rgb(var(--g200) / .7); box-shadow: 0 12px 32px -18px rgb(15 23 42 / .25); }
+  main thead.bg-gray-100 th { font-size: .75rem; letter-spacing: .04em; color: rgb(var(--g500)); }
+  main button.relative.rounded-lg { border-radius: 18px; box-shadow: 0 6px 14px -8px rgb(0 0 0 / .35); }
+  #sheet-body { border-radius: 28px 28px 0 0 !important; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  #busy > div { border-radius: 24px; } #att-bar { backdrop-filter: blur(14px); background: rgb(var(--page) / .82) !important; }
+  .btn.bg-blue-600 { background-image: linear-gradient(135deg, rgb(var(--b500)), rgb(var(--b700))); }
+  .btn.bg-green-600 { background-image: linear-gradient(135deg, #22c55e, #15803d); } .btn.bg-red-600, .btn.bg-red-700 { background-image: linear-gradient(135deg, #f87171, #b91c1c); }
+  /* 版面：手機／直向 iPad＝底部分頁列；iPad 橫向／電腦＝左側導覽 */
+  #topbar { display: flex; align-items: center; gap: .6rem; padding: calc(.75rem + env(safe-area-inset-top, 0px)) 1rem .5rem; max-width: 72rem; margin: 0 auto; width: 100%; }
+  #topbar .brand { font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; display: flex; align-items: center; gap: .55rem; min-width: 0; }
+  #topbar .logo { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-size: .8rem; font-weight: 800; background: linear-gradient(135deg, rgb(var(--b500)), #a855f7); box-shadow: 0 8px 18px -8px rgb(var(--b500)); flex: none; }
+  #who { display: block; font-size: .7rem; font-weight: 500; color: rgb(var(--g500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+  .ib { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgb(var(--surface)); border: 1px solid rgb(var(--g200)); color: rgb(var(--g600)); flex: none; }
+  #tabs { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; display: flex; gap: .15rem; padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom, 0px)); background: rgb(var(--surface) / .78); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); border-top: 1px solid rgb(var(--g200) / .8); overflow-x: auto; }
+  .tab { flex: 1 0 auto; min-width: 58px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: .35rem .3rem; border-radius: 16px; font-size: 11px; font-weight: 700; color: rgb(var(--g500)); transition: background .15s, color .15s; }
+  .tab svg { width: 22px; height: 22px; } .tab.hidden { display: none; }
+  .tab.on { color: rgb(var(--b700)); background: rgb(var(--b500) / .14); }
+  #main > main { padding-bottom: calc(var(--tabh) + 2rem + env(safe-area-inset-bottom, 0px)); }
+  #att-submit { bottom: calc(var(--tabh) + .75rem + env(safe-area-inset-bottom, 0px)) !important; padding-bottom: 0 !important; }
+  #att-submit .btn { box-shadow: 0 14px 30px -10px rgb(22 163 74 / .6); }
+  #toast { bottom: calc(var(--tabh) + 5rem + env(safe-area-inset-bottom, 0px)) !important; border-radius: 16px; }
+  @media (min-width: 1024px) {
+    #tabs { top: 0; right: auto; width: var(--rail); flex-direction: column; gap: .3rem; padding: 5rem .8rem 1rem; border-top: 0; border-right: 1px solid rgb(var(--g200) / .8); overflow: visible; }
+    .tab { flex: none; flex-direction: row; gap: .7rem; font-size: .95rem; padding: .75rem .9rem; } .tab svg { width: 20px; height: 20px; }
+    #main { padding-left: var(--rail); }
+    #main > main { padding-bottom: 2rem; } #topbar { padding-left: 2rem; padding-right: 2rem; }
+    #att-submit { bottom: .75rem !important; } #toast { bottom: 2rem !important; }
+    #tabs::before { content: "FRCSS PE"; position: absolute; top: 1.6rem; left: 1.4rem; font-weight: 800; font-size: 1.1rem; color: rgb(var(--g800)); }
+    #topbar .brand { visibility: hidden; }
+  }
+  #login { background: transparent; } #login > div { border-radius: 28px; border: 1px solid rgb(var(--g200) / .8); box-shadow: 0 30px 70px -30px rgb(var(--b600) / .45); backdrop-filter: blur(16px); }
+  @media (max-width: 640px) { input[type=date].inp { min-width: 0; } }
+  .help h4 { font-weight: 800; margin: 1rem 0 .35rem; } .help ol, .help ul { padding-left: 1.2rem; list-style: decimal; font-size: .9rem; line-height: 1.7; } .help ul { list-style: disc; }
+  .chip { display: inline-block; padding: .1rem .55rem; border-radius: 99px; font-size: .72rem; font-weight: 700; background: rgb(var(--b500) / .14); color: rgb(var(--b700)); }
+  .loader { border-top-color: rgb(var(--b500)); animation: sp 1.2s linear infinite; }
   /* UX：按下回饋、iPhone/iPad 全屏 PWA 安全區域、Toast */
   button { transition: transform .08s ease, opacity .15s; }
   button:active:not(:disabled) { transform: scale(.96); }
-  #main > nav { padding-top: calc(.75rem + env(safe-area-inset-top, 0px)); }
-  #login, #splash { padding-top: env(safe-area-inset-top, 0px); }
+    #login, #splash { padding-top: env(safe-area-inset-top, 0px); }
   #att-bar { top: env(safe-area-inset-top, 0px); }
-  #att-submit { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  #toast { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); transition: opacity .2s, transform .2s; }
+  #toast { transition: opacity .2s, transform .2s; }
   #toast.hide { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { button { transition: none; } .animate-pulse { animation: none; } }
   /* v2.10.1 課堂點名總表：左欄／上列固定，內部水平＋垂直捲動，不擠壓 */
-  .gt-scroll { overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; max-height: calc(100vh - 230px); min-height: 200px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+  .gt-scroll { overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; max-height: calc(100vh - 230px); min-height: 200px; border: 1px solid rgb(var(--g200)); border-radius: 18px; background: rgb(var(--surface)); }
   .gt { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 14px; }
-  .gt th, .gt td { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; text-align: center; padding: 0; height: 40px; }
-  .gt thead th { position: sticky; top: 0; z-index: 3; background: #eff6ff; min-width: 44px; width: 44px; font-size: 11px; line-height: 1.2; font-weight: 700; color: #1e3a8a; cursor: pointer; vertical-align: middle; }
+  .gt th, .gt td { border-right: 1px solid rgb(var(--g200)); border-bottom: 1px solid rgb(var(--g200)); text-align: center; padding: 0; height: 40px; }
+  .gt thead th { position: sticky; top: 0; z-index: 3; background: rgb(var(--b50)); min-width: 44px; width: 44px; font-size: 11px; line-height: 1.2; font-weight: 700; color: rgb(var(--b800)); cursor: pointer; vertical-align: middle; }
   .gt .gt-wd { font-weight: 400; color: #6b7280; }
-  .gt .gt-c0 { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 0 6px; min-width: 100px; white-space: nowrap; cursor: pointer; border-right: 2px solid #9ca3af; font-weight: 700; color: #1e40af; }
-  .gt thead .gt-c0 { z-index: 4; background: #dbeafe; cursor: default; font-size: 12px; }
+  .gt .gt-c0 { position: sticky; left: 0; z-index: 2; background: rgb(var(--surface)); text-align: left; padding: 0 6px; min-width: 100px; white-space: nowrap; cursor: pointer; border-right: 2px solid #9ca3af; font-weight: 700; color: rgb(var(--b700)); }
+  .gt thead .gt-c0 { z-index: 4; background: rgb(var(--b100)); cursor: default; font-size: 12px; }
   .gt .gt-no { display: inline-block; min-width: 1.4em; font-weight: 400; color: #6b7280; font-size: 12px; margin-right: 2px; }
   .gt thead th.gt-today { background: #bfdbfe; box-shadow: inset 0 -3px 0 #2563eb; }
   .gt thead th.gt-draft { background: #fef3c7; box-shadow: inset 0 -3px 0 #f59e0b; }
   .gt td[data-d] { min-width: 44px; cursor: pointer; font-weight: 700; }
   .gt td[data-d]:active, .gt thead th:active { filter: brightness(.9); }
-  .gt .gt-t { min-width: 52px; width: 52px; background: #f9fafb; font-weight: 700; color: #9ca3af; }
-  .gt thead th.gt-t { background: #f3f4f6; color: #374151; cursor: default; }
+  .gt .gt-t { min-width: 52px; width: 52px; background: rgb(var(--g50)); font-weight: 700; color: #9ca3af; }
+  .gt thead th.gt-t { background: rgb(var(--g100)); color: rgb(var(--g700)); cursor: default; }
   .gt .gt-tabs.on { color: #b91c1c; background: #fee2e2; }
   .gt .gt-tuni.on { color: #854d0e; background: #fef9c3; }
   .gt-ok { background: #f0fdf4; } .gt-abs { background: #fee2e2; } .gt-uni { background: #fef9c3; } .gt-inj { background: #ffedd5; } .gt-sw { background: #ccfbf1; } .gt-comp { background: #dbeafe; } .gt-oth { background: #e5e7eb; }
   .gs { display: inline-block; font-weight: 700; line-height: 1; }
   .gs-ok { color: #15803d; } .gs-abs { color: #b91c1c; } .gs-uni { color: #854d0e; } .gs-inj { color: #c2410c; } .gs-sw { color: #0f766e; } .gs-comp { color: #1d4ed8; } .gs-oth { color: #374151; }
-  .gt-leg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; font-size: 12px; white-space: nowrap; }
+  .gt-leg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid rgb(var(--g200)); border-radius: 8px; background: rgb(var(--surface)); font-size: 12px; white-space: nowrap; }
   .gt-leg .gs { min-width: 1.3em; text-align: center; padding: 2px 3px; border-radius: 4px; font-size: 13px; }
   @media (max-width: 640px) { .gt-scroll { max-height: calc(100vh - 200px); } .gt .gt-c0 { min-width: 88px; font-size: 13px; } .gt { font-size: 13px; } }
   @keyframes sp { to { transform: rotate(360deg); } }
   @keyframes syncmove { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
-  .sync-bar { height: 3px; overflow: hidden; background: #dbeafe; border-radius: 2px; }
-  .sync-bar > i { display: block; height: 100%; width: 35%; background: #2563eb; animation: syncmove 1s ease-in-out infinite; }
+  .sync-bar { height: 3px; overflow: hidden; background: rgb(var(--b100)); border-radius: 2px; }
+  .sync-bar > i { display: block; height: 100%; width: 35%; background: rgb(var(--b500)); animation: syncmove 1s ease-in-out infinite; }
 </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body>
 
 <!-- 自動登入中（有已存憑證時顯示，避免整頁空白） -->
 <div id="splash" class="hidden min-h-screen flex items-center justify-center p-4">
@@ -80,39 +140,42 @@
 
 <!-- 登入 -->
 <div id="login" class="min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+  <div class="bg-white p-8 w-full max-w-md text-center">
     <h1 class="text-2xl font-bold mb-2 text-blue-800">FRCSS PE 點名系統</h1>
     <p class="text-sm text-gray-500 mb-4">請輸入系統密碼</p>
+    <div class="mx-auto mb-4 w-14 h-14 rounded-2xl grid place-items-center text-white font-extrabold text-lg" style="background:linear-gradient(135deg,rgb(var(--b500)),#a855f7)">PE</div>
     <input id="op-name" class="inp mb-3" maxlength="20" placeholder="操作人姓名（選填，會記入紀錄）">
     <input type="password" id="pwd" class="inp mb-2 text-lg" placeholder="系統密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')app.login()">
     <label class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-1"><input type="checkbox" id="remember" class="w-4 h-4"> 記住此瀏覽器（30 日內免再輸入密碼）</label>
     <p class="text-xs text-gray-400 mb-4">不剔選：今日內免再輸入；按「登出」會即時作廢登入</p>
     <button class="btn bg-blue-600 w-full text-lg" onclick="app.login()">登入</button>
     <p id="login-msg" class="text-red-600 text-sm mt-4"></p>
-    <p class="text-[10px] text-gray-300 mt-4" id="ui-build"></p>
+    <p class="text-xs text-gray-400 mt-5"><span id="ui-build"></span> · <button class="underline" onclick="app.openAbout()">使用說明／更新紀錄</button></p>
   </div>
 </div>
 
 <!-- 主介面 -->
 <div id="main" class="hidden min-h-screen flex flex-col">
-  <nav class="bg-blue-800 text-white p-3 shadow-md flex flex-wrap justify-between items-center gap-2">
-    <div class="font-bold text-xl">FRCSS PE <span id="who" class="text-xs font-normal opacity-80"></span></div>
-    <div class="flex gap-2 text-sm md:text-base">
-      <button data-nav="attendance" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('attendance')">課堂點名</button>
-      <button data-nav="combo" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('combo')">夾班設定</button>
-      <button data-nav="history" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('history')">歷史紀錄</button>
-      <button data-nav="summary" class="px-3 py-2 rounded bg-blue-900" onclick="app.nav('summary')">學生統計</button>
-      <button id="nav-score" data-nav="score" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('score')">體育評分</button>
-      <button id="nav-students" data-nav="students" class="px-3 py-2 rounded bg-blue-900 hidden" onclick="app.nav('students')">學生管理</button>
-      <button class="px-3 py-2 rounded bg-red-700" onclick="app.logout()">登出</button>
-    </div>
+  <header id="topbar">
+    <div class="brand"><span class="logo">PE</span><div class="min-w-0"><div>FRCSS PE</div><span id="who"></span></div></div>
+    <span class="flex-1"></span>
+    <button class="ib" onclick="app.openAbout()" aria-label="版本與使用說明" title="版本與使用說明"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+    <button class="ib !text-red-600" onclick="app.logout()" aria-label="登出" title="登出"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+  </header>
+  <nav id="tabs" aria-label="主選單">
+    <button data-nav="attendance" class="tab " onclick="app.nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>課堂點名</span></button>
+    <button data-nav="combo" class="tab " onclick="app.nav('combo')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M14 17.5h7M17.5 14v7"/></svg><span>夾班設定</span></button>
+    <button data-nav="history" class="tab " onclick="app.nav('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>歷史紀錄</span></button>
+    <button data-nav="summary" class="tab " onclick="app.nav('summary')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>學生統計</span></button>
+    <button data-nav="score" id="nav-score" class="tab " onclick="app.nav('score')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 22l5-3 5 3-1.5-7.5"/></svg><span>體育評分</span></button>
+    <button data-nav="students" id="nav-students" class="tab hidden" onclick="app.nav('students')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/></svg><span>學生管理</span></button>
   </nav>
 
   <div id="offline-bar" class="hidden bg-gray-800 text-white text-center p-2 text-sm">📡 目前離線：無法登入或提交紀錄，連線後會自動恢復</div>
   <div id="student-cache-status" class="hidden bg-slate-50 text-slate-600 text-center px-2 py-1 text-xs"></div>
   <div id="bg-status" class="hidden bg-indigo-50 text-indigo-700 text-center px-2 py-1 text-xs"></div>
   <div id="ver-warn" class="hidden bg-red-600 text-white text-center p-2 text-sm"></div>
-  <main class="flex-grow p-3 md:p-8 w-full max-w-6xl mx-auto">
+  <main class="flex-grow px-3 pt-2 md:px-8 w-full max-w-6xl mx-auto">
     <!-- 點名 -->
     <section id="sec-attendance">
       <h2 class="text-xl font-bold mb-4 border-b pb-2">課堂點名</h2>
@@ -345,6 +408,30 @@
   <div id="sheet-body" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4 shadow-2xl max-h-[85vh] overflow-y-auto"></div>
 </div>
 
+<!-- 版本／使用說明／更新 -->
+<div id="about" class="hidden fixed inset-0 z-[55]">
+  <div class="absolute inset-0 bg-black/45" onclick="app.closeAbout()"></div>
+  <div class="absolute inset-x-0 bottom-0 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[560px] bg-white rounded-t-[28px] md:rounded-[28px] shadow-2xl max-h-[88vh] overflow-y-auto p-5 help" style="padding-bottom:calc(1.25rem + env(safe-area-inset-bottom,0px))">
+    <div class="flex items-center gap-2"><h3 class="text-xl flex-1">版本與使用說明</h3><button class="ib" onclick="app.closeAbout()" aria-label="關閉">✕</button></div>
+    <div class="card !mb-3 mt-3"><div class="flex items-center gap-2 flex-wrap"><b class="text-lg" id="ab-ver"></b><span class="chip" id="ab-build"></span><span class="chip" id="ab-net"></span></div>
+      <p class="text-xs text-gray-500 mt-1" id="ab-sub"></p>
+      <button class="btn bg-blue-600 w-full mt-3" id="ab-btn" onclick="app.checkUpdate()">🔄 檢查更新</button><p class="text-xs text-gray-500 mt-2" id="ab-msg"></p></div>
+    <h4>簡單使用方法</h4>
+    <ol>
+      <li><b>登入</b>：輸入系統密碼（可剔「記住此瀏覽器」）。</li>
+      <li><b>點名</b>：「課堂點名」揀日期＋班別 → 撳學生格仔改狀態（預設出席）→ 按「✅ 提交點名紀錄」。</li>
+      <li><b>夾班</b>：先到「夾班設定」砌好組合，點名時班別選單就會出現。</li>
+      <li><b>體育評分</b>：「體育評分」→ 揀班別 →（會自動計算）→ 撳學生睇扣分日期，可「下載 CSV」。</li>
+      <li><b>歷史／統計</b>：查詢某段日期、某班或某學生的紀錄，亦可匯出 CSV。</li>
+    </ol>
+    <h4>安裝到主畫面（似 App 咁用）</h4>
+    <ul><li>iPhone／iPad：Safari → 分享 → 加入主畫面</li><li>Android／電腦 Chrome、Edge：網址列「安裝」或選單「安裝應用程式」</li></ul>
+    <h4>更新</h4>
+    <p class="text-sm">App 開啟時會自動檢查新版本。想即時更新：按上面「檢查更新」，有新版會自動重新載入（未提交的點名不會被打斷）。</p>
+    <h4>更新紀錄</h4><div id="ab-log" class="text-sm"></div>
+  </div>
+</div>
+
 <!-- Toast（輕量提示，不打斷操作） -->
 <div id="toast" class="hide fixed left-1/2 z-[60] -translate-x-1/2 max-w-[92vw] px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white bg-gray-800" role="status" aria-live="polite"></div>
 
@@ -355,8 +442,14 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyiVnp-hzuxfYv33bIxYZSQJPw7daoioUsi50M5_iickLZOWHofAAT0_hFeLOZ5FhE/exec';
-const APP_VERSION = '2.10.2'; // 須與 Code.gs 的 VERSION 一致
-const UI_BUILD = 'ux6-combo'; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
+const APP_VERSION = '2.12.0'; // 須與 Code.gs 的 VERSION 一致
+const UI_VERSION = '2.12.0'; // 前端（網頁介面）版本；APP_VERSION 只用來核對後端 Code.gs
+const UI_BUILD = 'ux7-2026';
+const CHANGELOG = [
+  ['2.12.0', '前後端同步升級：後端 getScoreData 開放老師。全新 2026 介面：手機底部分頁、iPad／電腦側邊導覽、自動深色模式；體育評分開放給所有老師（設定仍由管理員修改）；新增版本資訊、使用說明及手動檢查更新'],
+  ['2.11.0', '夾班設定／夾班點名表'],
+  ['2.10.x', '課堂點名總表、學生名單本機快取、評分設定同步']
+]; // 前端 UX 小版本；只顯示在登入頁底部，方便確認新版已載入
 const DAY_CACHE_TTL = 20 * 60 * 1000;   // 同日同班 session 快取有效 20 分鐘
 const GT_TTL = 15 * 60 * 1000;          // 課堂點名總表快取有效 15 分鐘（提交／清除／重新載入時即時作廢）
 const BG_CHECK_MS = 90 * 1000;          // 背景檢查他人更新間隔
@@ -558,7 +651,7 @@ const app = {
     $('s-from').value = y0 + '-09-01'; $('s-to').value = this.today(); $('s-class').innerHTML = opts('全部'); this.colPanel();
     $('ex-class').innerHTML = opts('全部班別'); $('ex-from').value = y0 + '-09-01'; $('ex-to').value = this.today();
     $('ds-class').innerHTML = opts('選擇班別'); $('sc-class').innerHTML = opts('全部');
-    $('ui-build').textContent = 'v' + APP_VERSION + ' · ' + UI_BUILD;
+    $('ui-build').textContent = 'v' + UI_VERSION;
     let v = null; try { v = localStorage.getItem('pe_view'); } catch (_) {}
     this.vw = (v === 'grid' || v === 'list') ? v : (window.innerWidth < 1024 ? 'grid' : 'list'); // 手機／平板預設格仔，電腦預設列表
   },
@@ -568,7 +661,7 @@ const app = {
     this.s.role = u.role; $('who').textContent = '（' + u.email + '）';
     const vw = $('ver-warn');
     if (u.version !== APP_VERSION) { vw.textContent = '⚠️ 後端版本（' + (u.version || '舊版') + '）與網頁（' + APP_VERSION + '）不一致，部分功能可能出錯。請把最新 Code.gs 重新部署為「新版本」。'; vw.classList.remove('hidden'); } else vw.classList.add('hidden');
-    $('nav-students').classList.toggle('hidden', u.role !== 'admin'); $('nav-score').classList.toggle('hidden', u.role !== 'admin');
+    $('nav-students').classList.toggle('hidden', u.role !== 'admin'); $('nav-score').classList.remove('hidden'); // v2.12：評分開放給所有老師
     this.scLoadCfg();
     $('pwd').value = ''; $('login').classList.add('hidden'); $('main').classList.remove('hidden'); this.nav('attendance');
     this.syncStudentCache(false); // 不阻礙登入及前台操作，背景檢查學生名單版本
@@ -610,7 +703,33 @@ const app = {
     ['attendance', 'combo', 'students', 'history', 'summary', 'score'].forEach(x => $('sec-' + x).classList.toggle('hidden', x !== n));
     if (n === 'score') this.scOpen();
     if (n === 'combo') this.cbRender();
-    document.querySelectorAll('[data-nav]').forEach(b => { const on = b.dataset.nav === n; b.classList.toggle('!bg-white', on); b.classList.toggle('!text-blue-900', on); b.classList.toggle('font-bold', on); });
+    document.querySelectorAll('[data-nav]').forEach(b => { const on = b.dataset.nav === n; b.classList.toggle('on', on); });
+    window.scrollTo(0, 0);
+  },
+  // ----- 版本資訊／使用說明／檢查更新（v2.12） -----
+  openAbout() {
+    $('ab-ver').textContent = 'FRCSS PE 點名系統 v' + UI_VERSION; $('ab-build').textContent = UI_BUILD;
+    $('ab-net').textContent = navigator.onLine ? '已連線' : '離線';
+    $('ab-sub').textContent = '後端版本 ' + APP_VERSION + (this.s.role ? '｜身分：' + (this.s.role === 'admin' ? '管理員' : '老師') : '');
+    $('ab-log').innerHTML = CHANGELOG.map(x => `<div class="py-1"><span class="chip">v${esc(x[0])}</span> ${esc(x[1])}</div>`).join('');
+    $('ab-msg').textContent = ''; $('about').classList.remove('hidden');
+  },
+  closeAbout() { $('about').classList.add('hidden'); },
+  async checkUpdate() {
+    const m = $('ab-msg'), btn = $('ab-btn');
+    if (!('serviceWorker' in navigator)) { m.textContent = '此瀏覽器不支援自動更新，請重新整理頁面。'; return; }
+    if (!navigator.onLine) { m.textContent = '目前離線，連線後再試。'; return; }
+    btn.disabled = true; m.textContent = '檢查中…';
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(); if (!reg) { location.reload(); return; }
+      await reg.update(); await new Promise(r => setTimeout(r, 1200));
+      const w = reg.waiting || (reg.installing && reg.installing.state === 'installed' ? reg.installing : null);
+      if (w) {
+        if (this.s.dirty || this.s.busy) { m.textContent = '✅ 發現新版本，但你有未提交的點名。提交後會自動更新。'; w.postMessage('SKIP_WAITING'); }
+        else { m.textContent = '✅ 發現新版本，更新中…'; w.postMessage('SKIP_WAITING'); setTimeout(() => location.reload(), 1500); }
+      } else m.textContent = '✓ 已是最新版本（v' + UI_VERSION + '）';
+    } catch (e) { m.textContent = '檢查失敗：' + e.message; }
+    finally { btn.disabled = false; }
   },
   // ----- Toast -----
   toast(msg, type, ms) {
@@ -1458,7 +1577,15 @@ const app = {
   },
   async scOpen() {
     if (!this.sc.cfg) await this.scLoadCfg();
-    this.scFill(); if (this.sc.data) this.scRender();
+    this.scFill(); this.scPerm();
+    if (this.sc.data) this.scRender(); else this.scLoad(true); // 老師打開即自動計算，毋須先按「計算」
+  },
+  scPerm() { // 只有管理員可改評分設定；老師只讀，可直接計算、下載
+    const adm = this.s.role === 'admin', box = $('sc-rules').closest('details');
+    box.querySelectorAll('input').forEach(i => { i.disabled = !adm; });
+    box.querySelectorAll('button').forEach(b => b.classList.toggle('hidden', !adm));
+    box.querySelector('summary').textContent = adm ? '評分設定（可自行調整；按「儲存設定」後同步到所有裝置）' : '評分規則（由管理員設定，只供查看）';
+    if (!adm) { box.open = false; if (!this.sc.saved) { $('sc-note').textContent = '⚠ 管理員尚未儲存評分設定，現時使用預設值，結果只供參考。'; $('sc-note').classList.remove('hidden'); } }
   },
   scFill() {
     const c = this.sc.cfg;
@@ -1492,6 +1619,7 @@ const app = {
   },
   scCur() { try { return this.scRead(); } catch (e) { return this.sc.cfg || this.scNorm(null); } },
   async scSave() {
+    if (this.s.role !== 'admin') return alert('只有管理員可以修改評分設定');
     let c; try { c = this.scRead(); } catch (e) { return alert(e.message); }
     try { await this.api('saveScoreConfig', { config: c }); this.sc.cfg = c; this.sc.saved = true; this.scFill(); this.toast('✅ 評分設定已儲存', 'ok'); this.scRender(); }
     catch (e) { alert('儲存失敗：' + e.message); }
@@ -1500,10 +1628,14 @@ const app = {
     if (!confirm('還原所有評分規則、日期及欄位為預設值？（按「儲存設定」後才會覆蓋已儲存的設定）')) return;
     this.sc.cfg = this.scNorm(null); this.scFill(); this.scRender(); this.toast('已還原預設值，尚未儲存', 'warn');
   },
-  async scLoad() {
+  async scLoad(auto) {
     let c; try { c = this.scRead(); } catch (e) { return alert(e.message); }
     try { this.sc.data = await this.api('getScoreData', { from: c.s1.from, to: c.s2.to }); this.sc.key = c.s1.from + '|' + c.s2.to; this.sc.cfg = c; this.scRender(); }
-    catch (e) { alert('錯誤：' + e.message); }
+    catch (e) {
+      const deny = /權限|管理員|admin|僅限|不允許/i.test(e.message);
+      const msg = deny ? '後端（Code.gs）仍限制只有管理員可以計算評分，請管理員更新後端：把 getScoreData、getScoreConfig 改為所有已登入用戶可用（saveScoreConfig 保持只限管理員）。' : e.message;
+      if (auto) $('sc-info').innerHTML = '<span class="text-red-600 font-bold">⚠ ' + esc(msg) + '</span> <button class="gb" onclick="app.scLoad()">重試</button>'; else alert('錯誤：' + msg);
+    }
   },
   scCalc(r, c) {
     const lv = parseInt(String(r.Class).charAt(0), 10), rnd = x => Math.round(x * 100) / 100;
