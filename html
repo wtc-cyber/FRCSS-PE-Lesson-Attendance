@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統跳轉中...</title>
+  
+  <!-- 1. 告知瀏覽器同搜尋引擎永久轉址 -->
+  <link rel="canonical" href="https://frcsspeattendance.wtc-616.workers.dev/">
+  <meta http-equiv="refresh" content="0; url=https://frcsspeattendance.wtc-616.workers.dev/">
+  
+  <!-- 2. JS 即時跳轉（最快，並保留原本網址嘅參數與路徑） -->
+  <script>
+    (function() {
+      var target = "https://frcsspeattendance.wtc-616.workers.dev";
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      
+      // 如果原本 GitHub 網址有 sub-path (例如 /repo-name/)，可視乎需要保留或直接去根目錄
+      // 下面寫法會直接跳去新網址並保留 ?參數 同 #錨點
+      window.location.replace(target + "/" + search + hash);
+    })();
+  </script>
+</head>
+<body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8f9fa; color: #333;">
+  <div style="text-align: center;">
+    <p>系統已搬遷，正在為你跳轉至新網址...</p>
+    <p><a href="https://frcsspeattendance.wtc-616.workers.dev/" style="color: #0066cc;">如果頁面沒有自動跳轉，請按此處</a></p>
+  </div>
+</body>
+</html>
