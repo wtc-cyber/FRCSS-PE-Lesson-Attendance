@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FRCSS PE 點名系統</title>
-<meta name="theme-color" content="#f4f5fb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b0e16" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#06080e" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="FRCSS PE 點名系統">
 <link rel="manifest" href="manifest.webmanifest">
@@ -38,13 +40,16 @@ tailwind.config = { theme: { extend: { colors: {
     .gb { @apply px-3 py-2 border border-gray-200 bg-white text-sm min-h-[40px]; border-radius: 12px; }
     body { -webkit-tap-highlight-color: transparent; }
   }
-  /* ===== v2.12 · 2026 外觀 ===== */
-  :root { --g50:248 250 252; --g100:241 243 249; --g200:226 230 240; --g300:203 209 225; --g400:148 158 180; --g500:100 112 138; --g600:75 85 110; --g700:51 61 85; --g800:30 38 58; --g900:15 23 42;
-    --b50:238 242 255; --b100:224 231 255; --b200:199 210 254; --b300:165 180 252; --b400:129 140 248; --b500:99 102 241; --b600:79 70 229; --b700:67 56 202; --b800:55 48 163; --b900:49 46 129;
-    --surface:255 255 255; --page:244 245 251; --tabh:68px; --rail:236px; }
-  @media (prefers-color-scheme: dark) { :root { --g50:24 29 42; --g100:30 36 52; --g200:46 54 76; --g300:68 78 104; --g400:120 130 156; --g500:148 158 182; --g600:178 186 206; --g700:205 211 226; --g800:226 230 240; --g900:243 245 250;
-    --b50:30 33 70; --b100:40 44 92; --b200:58 64 130; --b300:99 107 190; --b400:129 140 248; --b500:129 140 248; --b600:99 102 241; --b700:165 180 252; --b800:199 210 254; --b900:224 231 255;
-    --surface:21 26 40; --page:10 13 21; }
+  /* ===== v2.13 · PRO SPORTS 外觀：運動場黑藍 + 電光螢光綠（volt） ===== */
+  :root { --g50:248 250 252; --g100:238 241 246; --g200:223 228 237; --g300:198 206 220; --g400:143 154 175; --g500:96 108 133; --g600:70 81 106; --g700:46 56 80; --g800:22 30 48; --g900:8 13 26;
+    --b50:236 243 255; --b100:219 232 255; --b200:190 212 255; --b300:140 176 255; --b400:92 140 255; --b500:47 107 255; --b600:37 88 235; --b700:29 70 200; --b800:20 52 150; --b900:14 36 105;
+    --surface:255 255 255; --page:238 241 246; --volt:200 255 46; --onv:10 16 0; --tabh:88px; --rail:248px;
+    --disp: "Barlow Condensed","Oswald","Roboto Condensed","Arial Narrow","PingFang HK","Noto Sans HK","Microsoft JhengHei",sans-serif; }
+  .dk { --g50:16 20 30; --g100:22 27 40; --g200:34 41 58; --g300:55 64 86; --g400:110 121 146; --g500:142 153 178; --g600:172 181 202; --g700:202 209 224; --g800:228 232 241; --g900:246 248 252;
+    --b50:16 28 60; --b100:22 38 80; --b200:34 58 120; --b300:60 90 170; --b400:96 135 255; --b500:96 135 255; --b600:47 107 255; --b700:147 180 255; --b800:186 208 255; --b900:220 232 255; --surface:14 18 28; --page:6 8 14; color: rgb(var(--g800)); }
+  .dk .bg-white, .dk .inp { background-color: rgb(var(--surface)); } .dk .text-red-600 { color: #fca5a5; }
+  @media (prefers-color-scheme: dark) { :root { --g50:16 20 30; --g100:22 27 40; --g200:34 41 58; --g300:55 64 86; --g400:110 121 146; --g500:142 153 178; --g600:172 181 202; --g700:202 209 224; --g800:228 232 241; --g900:246 248 252;
+    --b50:16 28 60; --b100:22 38 80; --b200:34 58 120; --b300:60 90 170; --b400:96 135 255; --b500:96 135 255; --b600:47 107 255; --b700:147 180 255; --b800:186 208 255; --b900:220 232 255; --surface:14 18 28; --page:6 8 14; }
     .bg-white { background-color: rgb(var(--surface)); }
     .bg-red-50,.bg-red-100 { background-color: #3a1a20; } .bg-amber-50,.bg-amber-100,.bg-yellow-50,.bg-yellow-100,.bg-orange-100 { background-color: #3a2c12; } .bg-green-50,.bg-green-100 { background-color: #12301f; }
     .bg-slate-50,.bg-indigo-50 { background-color: rgb(var(--g100)); }
@@ -52,41 +57,64 @@ tailwind.config = { theme: { extend: { colors: {
     .border-red-200,.border-red-300 { border-color: #6b2a33; } .border-amber-300,.border-orange-400,.border-yellow-400 { border-color: #7a5a1c; }
   }
   html { background: rgb(var(--page)); }
-  body { background: radial-gradient(1100px 520px at 12% -8%, rgb(var(--b500) / .16), transparent 60%), radial-gradient(900px 480px at 100% 0%, rgb(167 139 250 / .14), transparent 60%), rgb(var(--page)); background-attachment: fixed; color: rgb(var(--g800)); font-family: "Inter var", Inter, system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif; letter-spacing: .005em; }
-  main h2 { border: 0 !important; padding: 0 !important; font-size: clamp(1.4rem, 1.1rem + 1vw, 1.9rem); font-weight: 800; letter-spacing: -.01em; margin-bottom: 1rem; }
+  body { background: radial-gradient(900px 460px at -5% -12%, rgb(var(--b500) / .16), transparent 62%), rgb(var(--page)); background-attachment: fixed; color: rgb(var(--g800)); font-family: Inter, system-ui, -apple-system, "Segoe UI", "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif; }
+  /* 標題：運動海報感（斜角螢光條 + 窄體粗字） */
+  main h2 { display: flex; align-items: center; gap: .65rem; border: 0 !important; padding: 0 !important; margin-bottom: 1.1rem; font-family: var(--disp); font-size: clamp(1.7rem, 1.3rem + 1.4vw, 2.4rem); font-weight: 800; line-height: 1.05; letter-spacing: .01em; }
+  main h2::before { content: ""; flex: none; width: 7px; height: 1.15em; background: rgb(var(--volt)); transform: skewX(-14deg); border-radius: 2px; box-shadow: 0 0 0 1px rgb(0 0 0 / .18); }
   main h3 { font-weight: 800; }
-  main .bg-white.rounded.shadow, main .bg-white.rounded.shadow-md { border-radius: 20px; border: 1px solid rgb(var(--g200) / .7); box-shadow: 0 12px 32px -18px rgb(15 23 42 / .25); }
-  main thead.bg-gray-100 th { font-size: .75rem; letter-spacing: .04em; color: rgb(var(--g500)); }
-  main button.relative.rounded-lg { border-radius: 18px; box-shadow: 0 6px 14px -8px rgb(0 0 0 / .35); }
-  #sheet-body { border-radius: 28px 28px 0 0 !important; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
-  #busy > div { border-radius: 24px; } #att-bar { backdrop-filter: blur(14px); background: rgb(var(--page) / .82) !important; }
-  .btn.bg-blue-600 { background-image: linear-gradient(135deg, rgb(var(--b500)), rgb(var(--b700))); }
-  .btn.bg-green-600 { background-image: linear-gradient(135deg, #22c55e, #15803d); } .btn.bg-red-600, .btn.bg-red-700 { background-image: linear-gradient(135deg, #f87171, #b91c1c); }
-  /* 版面：手機／直向 iPad＝底部分頁列；iPad 橫向／電腦＝左側導覽 */
-  #topbar { display: flex; align-items: center; gap: .6rem; padding: calc(.75rem + env(safe-area-inset-top, 0px)) 1rem .5rem; max-width: 72rem; margin: 0 auto; width: 100%; }
-  #topbar .brand { font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; display: flex; align-items: center; gap: .55rem; min-width: 0; }
-  #topbar .logo { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-size: .8rem; font-weight: 800; background: linear-gradient(135deg, rgb(var(--b500)), #a855f7); box-shadow: 0 8px 18px -8px rgb(var(--b500)); flex: none; }
-  #who { display: block; font-size: .7rem; font-weight: 500; color: rgb(var(--g500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
-  .ib { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgb(var(--surface)); border: 1px solid rgb(var(--g200)); color: rgb(var(--g600)); flex: none; }
-  #tabs { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; display: flex; gap: .15rem; padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom, 0px)); background: rgb(var(--surface) / .78); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); border-top: 1px solid rgb(var(--g200) / .8); overflow-x: auto; }
-  .tab { flex: 1 0 auto; min-width: 58px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: .35rem .3rem; border-radius: 16px; font-size: 11px; font-weight: 700; color: rgb(var(--g500)); transition: background .15s, color .15s; }
+  /* 卡片：平面、細邊框、少陰影 */
+  .card { border-radius: 16px; border: 1px solid rgb(var(--g200)); box-shadow: 0 1px 0 rgb(255 255 255 / .04) inset, 0 10px 30px -22px rgb(0 0 0 / .5); }
+  main .bg-white.rounded.shadow, main .bg-white.rounded.shadow-md { border-radius: 16px; border: 1px solid rgb(var(--g200)); box-shadow: none; overflow: hidden; }
+  /* 計分板式表頭 */
+  main thead.bg-gray-100 { background: #0b1220 !important; }
+  main thead.bg-gray-100 th { color: #aab6cf; font-family: var(--disp); font-size: .9rem; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
+  #sc-body td.font-bold, #sc-body td:nth-child(n+6) { font-variant-numeric: tabular-nums; }
+  #sc-body td.font-bold { font-family: var(--disp); font-size: 1.12rem; }
+  /* 按鈕：螢光綠主按鈕（深色字）、球場綠提交 */
+  .btn { border-radius: 12px; font-weight: 800; letter-spacing: .02em; box-shadow: inset 0 -2px 0 rgb(0 0 0 / .2); }
+  .btn.bg-blue-600 { background-color: rgb(var(--volt)); background-image: none; color: rgb(var(--onv)); }
+  .btn.bg-green-600 { background-image: linear-gradient(180deg, #22c55e, #15803d); } .btn.bg-red-600, .btn.bg-red-700 { background-image: linear-gradient(180deg, #ef4444, #b91c1c); } .btn.bg-gray-500 { background-color: rgb(var(--g600)); }
+  .inp { border-radius: 12px; background-color: rgb(var(--surface)); }
+  .inp:focus { border-color: rgb(var(--b500)); box-shadow: 0 0 0 3px rgb(var(--b500) / .25); }
+  .gb { border-radius: 10px; font-weight: 600; }
+  /* 點名格：球衣號碼感 */
+  main button.relative.rounded-lg { border-radius: 14px; border-width: 1.5px; box-shadow: none; }
+  main button.relative.rounded-lg > span:first-child { font-family: var(--disp); font-size: 13px; font-weight: 800; opacity: .85; }
+  #sheet-body { border-radius: 24px 24px 0 0 !important; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  #busy > div { border-radius: 20px; } #att-bar { backdrop-filter: blur(14px); background: rgb(var(--page) / .85) !important; }
+  #att-sum { font-family: var(--disp); font-size: 1.1rem; letter-spacing: .03em; }
+  /* 頂欄 */
+  .logo { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: rgb(var(--volt)); color: rgb(var(--onv)); font-family: var(--disp); font-style: italic; font-weight: 800; font-size: 1.1rem; letter-spacing: .02em; transform: skewX(-8deg); box-shadow: inset 0 -2px 0 rgb(0 0 0 / .2); }
+  .logo.big { width: 68px; height: 68px; border-radius: 20px; font-size: 2rem; }
+  #topbar { display: flex; align-items: center; gap: .6rem; padding: calc(.7rem + env(safe-area-inset-top, 0px)) 1rem .4rem; max-width: 72rem; margin: 0 auto; width: 100%; }
+  #topbar .brand { display: flex; align-items: center; gap: .6rem; min-width: 0; font-family: var(--disp); font-weight: 800; font-size: 1.3rem; letter-spacing: .03em; line-height: 1.05; }
+  #who { display: block; font-family: Inter, sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: 0; color: rgb(var(--g500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
+  .ib { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: rgb(var(--surface)); border: 1px solid rgb(var(--g200)); color: rgb(var(--g600)); flex: none; }
+  /* 導覽：手機／直向 iPad＝懸浮底欄；橫向 iPad／電腦＝左側深色導覽 */
+  #tabs { position: fixed; z-index: 30; left: .6rem; right: .6rem; bottom: calc(.6rem + env(safe-area-inset-bottom, 0px)); display: flex; gap: .15rem; padding: .35rem; border-radius: 24px; background: rgb(var(--surface) / .88); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); border: 1px solid rgb(var(--g200)); box-shadow: 0 18px 40px -14px rgb(0 0 0 / .6); overflow-x: auto; }
+  .tab { flex: 1 0 auto; min-width: 58px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: .45rem .3rem; border-radius: 18px; font-size: 11px; font-weight: 700; color: rgb(var(--g500)); transition: background .15s, color .15s; }
   .tab svg { width: 22px; height: 22px; } .tab.hidden { display: none; }
-  .tab.on { color: rgb(var(--b700)); background: rgb(var(--b500) / .14); }
-  #main > main { padding-bottom: calc(var(--tabh) + 2rem + env(safe-area-inset-bottom, 0px)); }
-  #att-submit { bottom: calc(var(--tabh) + .75rem + env(safe-area-inset-bottom, 0px)) !important; padding-bottom: 0 !important; }
-  #att-submit .btn { box-shadow: 0 14px 30px -10px rgb(22 163 74 / .6); }
-  #toast { bottom: calc(var(--tabh) + 5rem + env(safe-area-inset-bottom, 0px)) !important; border-radius: 16px; }
+  .tab.on { color: rgb(var(--onv)); background: rgb(var(--volt)); }
+  #main > main { padding-bottom: calc(var(--tabh) + 1.5rem + env(safe-area-inset-bottom, 0px)); }
+  #att-submit { bottom: calc(var(--tabh) + .5rem + env(safe-area-inset-bottom, 0px)) !important; padding-bottom: 0 !important; }
+  #att-submit .btn { box-shadow: 0 14px 30px -10px rgb(22 163 74 / .65), inset 0 -2px 0 rgb(0 0 0 / .2); }
+  #toast { bottom: calc(var(--tabh) + 4.5rem + env(safe-area-inset-bottom, 0px)) !important; border-radius: 14px; }
   @media (min-width: 1024px) {
-    #tabs { top: 0; right: auto; width: var(--rail); flex-direction: column; gap: .3rem; padding: 5rem .8rem 1rem; border-top: 0; border-right: 1px solid rgb(var(--g200) / .8); overflow: visible; }
-    .tab { flex: none; flex-direction: row; gap: .7rem; font-size: .95rem; padding: .75rem .9rem; } .tab svg { width: 20px; height: 20px; }
-    #main { padding-left: var(--rail); }
-    #main > main { padding-bottom: 2rem; } #topbar { padding-left: 2rem; padding-right: 2rem; }
+    #tabs { top: 0; left: 0; right: auto; bottom: 0; width: var(--rail); flex-direction: column; gap: .3rem; padding: 5.4rem .9rem 1rem; border-radius: 0; border: 0; border-right: 1px solid rgb(var(--g200)); box-shadow: none; background: rgb(var(--surface)); overflow: visible; }
+    .tab { flex: none; flex-direction: row; gap: .75rem; font-size: .95rem; padding: .8rem .95rem; border-radius: 12px; } .tab svg { width: 20px; height: 20px; }
+    #main { padding-left: var(--rail); } #main > main { padding-bottom: 2rem; } #topbar { padding-left: 2rem; padding-right: 2rem; }
     #att-submit { bottom: .75rem !important; } #toast { bottom: 2rem !important; }
-    #tabs::before { content: "FRCSS PE"; position: absolute; top: 1.6rem; left: 1.4rem; font-weight: 800; font-size: 1.1rem; color: rgb(var(--g800)); }
-    #topbar .brand { visibility: hidden; }
+    #tabs::before { content: "FRCSS PE"; position: absolute; top: 1.35rem; left: 1.4rem; font-family: var(--disp); font-weight: 800; font-size: 1.6rem; letter-spacing: .04em; color: rgb(var(--g900)); }
+    #tabs::after { content: ""; position: absolute; top: 1.55rem; right: 1.2rem; width: 10px; height: 26px; background: rgb(var(--volt)); transform: skewX(-14deg); border-radius: 2px; }
+    #topbar .logo, #topbar .brand > div > div:first-child { display: none; }
   }
-  #login { background: transparent; } #login > div { border-radius: 28px; border: 1px solid rgb(var(--g200) / .8); box-shadow: 0 30px 70px -30px rgb(var(--b600) / .45); backdrop-filter: blur(16px); }
-  @media (max-width: 640px) { input[type=date].inp { min-width: 0; } }
+  /* 登入：夜間球場 */
+  #login { position: relative; overflow: hidden; background: linear-gradient(165deg, #04060b 0%, #0a1430 62%, #0c1d42 100%); }
+  #login::before, #login::after { content: ""; position: absolute; left: -20%; right: -20%; background: rgb(var(--volt)); transform: rotate(-9deg); pointer-events: none; }
+  #login::before { height: 70px; top: 18%; opacity: .14; } #login::after { height: 22px; top: 31%; opacity: .1; }
+  #login > div { position: relative; z-index: 1; border-radius: 22px; border: 1px solid rgb(var(--g200)); background-color: rgb(var(--surface) / .82) !important; backdrop-filter: blur(16px); box-shadow: 0 40px 80px -30px rgb(0 0 0 / .8); }
+  #login h1 { font-family: var(--disp); font-size: 2.7rem; font-weight: 800; font-style: italic; line-height: 1; letter-spacing: .02em; color: rgb(var(--g900)); margin-bottom: .1rem; }
+  #login .tag { font-weight: 700; font-size: .8rem; letter-spacing: .35em; color: rgb(var(--volt)); margin-bottom: 1.1rem; }
   .help h4 { font-weight: 800; margin: 1rem 0 .35rem; } .help ol, .help ul { padding-left: 1.2rem; list-style: decimal; font-size: .9rem; line-height: 1.7; } .help ul { list-style: disc; }
   .chip { display: inline-block; padding: .1rem .55rem; border-radius: 99px; font-size: .72rem; font-weight: 700; background: rgb(var(--b500) / .14); color: rgb(var(--b700)); }
   .loader { border-top-color: rgb(var(--b500)); animation: sp 1.2s linear infinite; }
@@ -139,11 +167,11 @@ tailwind.config = { theme: { extend: { colors: {
 </div>
 
 <!-- 登入 -->
-<div id="login" class="min-h-screen flex items-center justify-center p-4">
+<div id="login" class="dk min-h-screen flex items-center justify-center p-4">
   <div class="bg-white p-8 w-full max-w-md text-center">
-    <h1 class="text-2xl font-bold mb-2 text-blue-800">FRCSS PE 點名系統</h1>
+    <h1>FRCSS PE</h1><div class="tag">體育科點名系統</div>
     <p class="text-sm text-gray-500 mb-4">請輸入系統密碼</p>
-    <div class="mx-auto mb-4 w-14 h-14 rounded-2xl grid place-items-center text-white font-extrabold text-lg" style="background:linear-gradient(135deg,rgb(var(--b500)),#a855f7)">PE</div>
+    <div class="logo big mx-auto mb-4">PE</div>
     <input id="op-name" class="inp mb-3" maxlength="20" placeholder="操作人姓名（選填，會記入紀錄）">
     <input type="password" id="pwd" class="inp mb-2 text-lg" placeholder="系統密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')app.login()">
     <label class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-1"><input type="checkbox" id="remember" class="w-4 h-4"> 記住此瀏覽器（30 日內免再輸入密碼）</label>
@@ -162,7 +190,7 @@ tailwind.config = { theme: { extend: { colors: {
     <button class="ib" onclick="app.openAbout()" aria-label="版本與使用說明" title="版本與使用說明"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
     <button class="ib !text-red-600" onclick="app.logout()" aria-label="登出" title="登出"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
   </header>
-  <nav id="tabs" aria-label="主選單">
+  <nav id="tabs" class="dk" aria-label="主選單">
     <button data-nav="attendance" class="tab " onclick="app.nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>課堂點名</span></button>
     <button data-nav="combo" class="tab " onclick="app.nav('combo')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M14 17.5h7M17.5 14v7"/></svg><span>夾班設定</span></button>
     <button data-nav="history" class="tab " onclick="app.nav('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>歷史紀錄</span></button>
@@ -443,9 +471,10 @@ tailwind.config = { theme: { extend: { colors: {
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwdUZ3W4d1zh5LCgT3mDuK3E52uj-r5MlgwWRjJr9xUpEP2KTTYdTgKx6uzNqrq3URC/exec';
 const APP_VERSION = '2.12.0'; // 須與 Code.gs 的 VERSION 一致
-const UI_VERSION = '2.12.0'; // 前端（網頁介面）版本；APP_VERSION 只用來核對後端 Code.gs
-const UI_BUILD = 'ux7-2026';
+const UI_VERSION = '2.13.0'; // 前端（網頁介面）版本；APP_VERSION 只用來核對後端 Code.gs
+const UI_BUILD = 'pro-2026';
 const CHANGELOG = [
+  ['2.13.0', '全新「運動專業」介面：夜間球場深色導覽、螢光綠主色、計分板式表格、窄體運動字體、球衣號碼式點名格；功能不變'],
   ['2.12.0', '前後端同步升級：後端 getScoreData 開放老師。全新 2026 介面：手機底部分頁、iPad／電腦側邊導覽、自動深色模式；體育評分開放給所有老師（設定仍由管理員修改）；新增版本資訊、使用說明及手動檢查更新'],
   ['2.11.0', '夾班設定／夾班點名表'],
   ['2.10.x', '課堂點名總表、學生名單本機快取、評分設定同步']

@@ -1,6 +1,6 @@
 // FRCSS PE 點名系統 Service Worker
 // 更新網頁後，請把 VERSION 改成新數字，用戶才會取得新版本
-const VERSION = 'v11'; // v2.12.0 前端：2026 介面、評分開放老師、版本/更新說明
+const VERSION = 'v12'; // v2.13.0 前端：運動專業介面
 const CACHE = 'frcss-pe-' + VERSION;
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
